@@ -1,9 +1,10 @@
 """속성 인스펙터 — 선택 노드의 핀·기본값·연결됨·변경됨."""
 from __future__ import annotations
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
 from ..base.graph_model import GraphModel, Node, Pin
 from .pin_status import is_changed_from_default
+from .navigable_panel import NavigablePanel
 
 _PEER_ROLE = Qt.UserRole + 1
 
@@ -25,8 +26,7 @@ def _peer_of(path: str, graph: GraphModel) -> str | None:
     return None
 
 
-class InspectorPanel(QWidget):
-    navigate_requested = Signal(str)
+class InspectorPanel(NavigablePanel):
 
     def __init__(self) -> None:
         super().__init__()
