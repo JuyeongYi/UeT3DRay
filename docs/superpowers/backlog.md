@@ -26,6 +26,16 @@
 | P2a-B2 | `show_error`를 `AbstractGraphView` 계약으로 승격(현재 `getattr` 덕타이핑). |
 | P2a-B3 | 핀 경로(`"Node.Pin.Sub"`) 파싱 헬퍼 중앙화 — 현재 `flow.py`·`scene.py`·`inspector_panel.py` 등에 `split(".")` 로직 분산. |
 
+## improver Phase 2b 리뷰 findings (2026-05-19) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **P2b-A1** | `InspectorPanel._items`가 `pin.name`으로 키잉 — 동명 서브핀(FVector X/Y/Z 등) 충돌. `pin_count()`·핀 단위 API가 실제 RigVM 데이터에서 부정확. **전체 경로 키잉 필요.** (인스펙터 정확도 직결 — 우선순위 높음.) |
+| **P2b-A2** | '변경됨' 휴리스틱이 zero 구조체(`(X=0,Y=0,Z=0)`)를 거짓 양성으로 표시. 구조체 zero-value 인식 필요. (인스펙터 신뢰도 직결 — 우선순위 높음.) |
+| P2b-B1 | `ViewState`의 옵저버(`subscribe`/`_notify`)가 미사용 코드 — MainWindow가 직접 시그널 연결만 사용. 옵저버 제거 또는 실제 사용. |
+| P2b-B2 | `_type_suffix` 헬퍼가 `scene.py`·`node_filter_panel.py`에 중복 — 백로그 P2a-B3(경로 헬퍼 중앙화)와 묶어 처리. |
+| P2b-B3 | `pin_status`가 docstring상 '전략'이나 구조는 단순 모듈 함수 — 전략 패턴 정합 또는 docstring 정정. |
+
 ## 기능 아이디어 (spec §3.3 향후 확장)
 
 | ID | 내용 |
