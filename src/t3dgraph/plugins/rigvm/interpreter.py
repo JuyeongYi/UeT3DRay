@@ -15,6 +15,21 @@ def _text(v: Value | None) -> str | None:
     return None
 
 
+def _classify_kind(obj: T3DObject) -> str:
+    suffix = (obj.cls or "").rsplit(".", 1)[-1]
+    if suffix in ("RigVMCollapseNode", "RigVMFunctionReferenceNode"):
+        return "function"
+    if "ContainedGraph" in obj.properties:
+        return "function"
+    notation = _text(obj.properties.get("TemplateNotation")) or ""
+    resolved = _text(obj.properties.get("ResolvedFunctionName")) or ""
+    if "ArrayIterator" in notation:
+        return "loop"
+    if "Sequence" in resolved or "Sequence" in (obj.name or ""):
+        return "sequence"
+    return "node"
+
+
 def _position(obj: T3DObject) -> tuple[float, float] | None:
     v = obj.properties.get("Position")
     if not isinstance(v, Struct):
@@ -72,6 +87,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             pins=[_build_pin(c) for c in obj.children if t.is_pin_class(c.cls) or c.cls is None],
             position=_position(obj),
             raw=dict(obj.properties),
+            kind=_classify_kind(obj),
         )
         g.nodes.append(node)
         if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
@@ -96,4 +112,5 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             position=_position(obj),
             raw=dict(obj.properties),
             is_generic=True,
+            kind=_classify_kind(obj),
         ))
