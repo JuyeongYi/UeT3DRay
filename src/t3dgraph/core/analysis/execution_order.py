@@ -9,6 +9,7 @@ from .flow import analyze_flow, FlowResult
 class ExecutionStep:
     node: str
     depth: int
+    kind: str = "node"
 
 
 def compute_execution_order(
@@ -25,6 +26,7 @@ def compute_execution_order(
         nodes_in_flow.update((s, t))
 
     entries = sorted(n for n in nodes_in_flow if in_count.get(n, 0) == 0)
+    node_kind = {n.name: n.kind for n in graph.nodes}
 
     steps: list[ExecutionStep] = []
     visited: set[str] = set()
@@ -35,7 +37,7 @@ def compute_execution_order(
             if node in visited:
                 continue
             visited.add(node)
-            steps.append(ExecutionStep(node=node, depth=depth))
+            steps.append(ExecutionStep(node=node, depth=depth, kind=node_kind.get(node, "node")))
             succ = out_edges.get(node, [])
             child_depth = depth if len(succ) <= 1 else depth + 1
             for nxt in reversed(succ):          # 역순 push → 원래 순서로 pop
