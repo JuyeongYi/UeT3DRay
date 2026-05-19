@@ -35,6 +35,15 @@ def test_empty_graph():
     assert compute_execution_order(GraphModel()) == []
 
 
+def test_deep_chain_no_recursion_error():
+    nodes = [_n(f"N{i}", _ep("I", "Input"), _ep("O", "Output")) for i in range(5000)]
+    links = [Link(f"N{i}.O", f"N{i+1}.I") for i in range(4999)]
+    order = compute_execution_order(GraphModel(nodes=nodes, links=links))
+    assert len(order) == 5000
+    assert order[0].node == "N0"
+    assert order[-1].node == "N4999"
+
+
 def test_compute_with_precomputed_flow_matches():
     from t3dgraph.core.analysis.flow import analyze_flow
     a = _n("A", _ep("O", "Output"))

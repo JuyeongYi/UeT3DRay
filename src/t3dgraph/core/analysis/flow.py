@@ -1,5 +1,6 @@
 """실행 흐름 분석 — fan-in 수렴점, 공통 다운스트림."""
 from __future__ import annotations
+from collections import deque
 from dataclasses import dataclass, field
 from ..base.graph_model import GraphModel, Pin
 
@@ -76,9 +77,9 @@ def analyze_flow(graph: GraphModel) -> FlowResult:
 
 def _reachable(start: str, out_edges: dict[str, list[str]]) -> list[str]:
     seen: set[str] = set()
-    queue = list(out_edges.get(start, []))
+    queue: deque[str] = deque(out_edges.get(start, []))
     while queue:
-        n = queue.pop(0)
+        n = queue.popleft()
         if n in seen:
             continue
         seen.add(n)

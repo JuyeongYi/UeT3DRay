@@ -28,17 +28,16 @@ def compute_execution_order(
 
     steps: list[ExecutionStep] = []
     visited: set[str] = set()
-
-    def walk(node: str, depth: int) -> None:
-        if node in visited:
-            return
-        visited.add(node)
-        steps.append(ExecutionStep(node=node, depth=depth))
-        succ = out_edges.get(node, [])
-        child_depth = depth if len(succ) <= 1 else depth + 1
-        for nxt in succ:
-            walk(nxt, child_depth)
-
-    for e in entries:
-        walk(e, 0)
+    for entry in entries:
+        stack: list[tuple[str, int]] = [(entry, 0)]
+        while stack:
+            node, depth = stack.pop()
+            if node in visited:
+                continue
+            visited.add(node)
+            steps.append(ExecutionStep(node=node, depth=depth))
+            succ = out_edges.get(node, [])
+            child_depth = depth if len(succ) <= 1 else depth + 1
+            for nxt in reversed(succ):          # 역순 push → 원래 순서로 pop
+                stack.append((nxt, child_depth))
     return steps
