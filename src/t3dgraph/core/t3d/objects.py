@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from .tokenizer import tokenize_lines, Line
-from .values import Value, parse_value
+from .values import Value, parse_value, ValueParseError
 
 
 class T3DParseError(Exception):
@@ -61,7 +61,12 @@ def parse_objects(src: str) -> list[T3DObject]:
                 return obj, pos
             elif "=" in ln.text:
                 key, _, raw = ln.text.partition("=")
-                obj.properties[key.strip()] = parse_value(raw.strip())
+                try:
+                    value = parse_value(raw.strip())
+                except ValueParseError as e:
+                    col = ln.indent + len(key) + 1
+                    raise T3DParseError(ln.number, col, f"속성값 파싱 실패: {e}") from e
+                obj.properties[key.strip()] = value
                 pos += 1
             else:
                 pos += 1
