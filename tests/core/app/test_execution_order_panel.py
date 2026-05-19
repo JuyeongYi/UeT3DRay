@@ -43,3 +43,17 @@ def test_empty_order(qtbot):
     qtbot.addWidget(panel)
     panel.show_order([])
     assert panel.step_count() == 0
+
+
+def test_uses_fixed_pitch_font(qtbot):
+    panel = ExecutionOrderPanel()
+    qtbot.addWidget(panel)
+    f = panel.list_font()
+    is_fixed = (
+        f.fixedPitch()
+        or f.styleHint() == f.StyleHint.Monospace
+        or "mono" in f.family().lower()
+        or "consol" in f.family().lower()
+        or "courier" in f.family().lower()
+    )
+    assert is_fixed

@@ -1,7 +1,7 @@
 """분석 도크 — 실행 순서 코드 뷰."""
 from __future__ import annotations
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QListWidgetItem
 from ..analysis.execution_order import ExecutionStep
 
@@ -16,7 +16,7 @@ class ExecutionOrderPanel(QWidget):
         super().__init__()
         layout = QVBoxLayout(self)
         self._list = QListWidget()
-        self._list.setFont(QFont("Consolas"))
+        self._list.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         layout.addWidget(self._list)
         self._list.itemActivated.connect(self._on_activated)
         self._rows: dict[str, QListWidgetItem] = {}
@@ -34,6 +34,9 @@ class ExecutionOrderPanel(QWidget):
         node = item.data(_NODE_ROLE)
         if node:
             self.navigate_requested.emit(node)
+
+    def list_font(self):
+        return self._list.font()
 
     def step_count(self) -> int:
         return self._list.count()
