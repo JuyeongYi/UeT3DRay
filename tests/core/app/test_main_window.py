@@ -79,7 +79,7 @@ def test_navigate_request_selects_peer(qtbot):
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
     w.scene.select_node("A")
-    w.inspector.activate_pin("Out")
+    w.inspector.activate_pin("A.Out")
     assert w.scene.selected_node_name() == "B"
 
 
