@@ -4,8 +4,6 @@ from typing import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMainWindow, QDockWidget, QFileDialog, QTabWidget
 from ..base.graph_model import GraphModel
-from ..analysis.flow import analyze_flow
-from ..analysis.execution_order import compute_execution_order
 from .contracts import AbstractGraphView
 from .scene import GraphScene
 from .graph_view import GraphView
@@ -139,16 +137,17 @@ class MainWindow(QMainWindow):
 
     def show_graph(self, graph: GraphModel) -> None:
         self.graph = graph
-        self._flow = analyze_flow(graph)
-        self.scene.populate(graph, view_state=self.view_state, flow=self._flow)
+        self.scene.populate(graph, view_state=self.view_state, flow=None)
         self.node_filter.set_graph(graph)
         self.inspector.show_node(None, graph)
-        self.analysis_panel.show_flow(self._flow)
-        self.exec_order_panel.show_order(
-            compute_execution_order(graph, self._flow))
         self.view.fit()
         self.statusBar().showMessage(
             f"노드 {len(graph.nodes)} · 링크 {len(graph.links)}", 5000)
+
+    def show_analysis(self, flow, order) -> None:
+        self._flow = flow
+        self.analysis_panel.show_flow(flow)
+        self.exec_order_panel.show_order(order)
 
     def show_error(self, message: str) -> None:
         from PySide6.QtWidgets import QMessageBox

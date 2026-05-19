@@ -94,24 +94,39 @@ def test_bottom_dock_has_analysis_tabs(qtbot):
 
 
 def test_show_graph_populates_execution_order(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     assert w.exec_order_panel.step_count() == 2
 
 
 def test_analysis_panel_navigate_moves_canvas(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     w.exec_order_panel.activate_row(1)
     assert w.scene.selected_node_name() == "B"
 
 
 def test_canvas_selection_highlights_exec_panel(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     w.scene.select_node("A")
     assert w.exec_order_panel.highlighted_node() == "A"
 
@@ -142,9 +157,14 @@ def test_toggle_expand_subpins_updates_state(qtbot):
 
 
 def test_fan_in_highlight_toggle_keeps_same_node_items(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     before = w.scene.node_item("A")
     w.set_view_mode("fan_in_highlight", True)
     after = w.scene.node_item("A")

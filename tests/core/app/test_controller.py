@@ -7,8 +7,11 @@ class _FakeView(AbstractGraphView):
     def __init__(self):
         self.shown: GraphModel | None = None
         self.error: str | None = None
+        self.analysis = None
     def show_graph(self, graph):
         self.shown = graph
+    def show_analysis(self, flow, order):
+        self.analysis = (flow, order)
     def show_error(self, message):
         self.error = message
 
@@ -41,3 +44,14 @@ def test_load_ref_resolves_dotted_path():
 
 def test_load_ref_none_returns_none():
     assert load_ref(None) is None
+
+
+def test_controller_feeds_analysis_to_view(orion_dir):
+    view = _FakeView()
+    ctrl = AppController(view)
+    f = orion_dir / "Game_Characters_workshop_Meshes_SKM_workshop_upper_weldingArm_CR__RigVMModel.t3d.txt"
+    ctrl.open_file(str(f))
+    assert view.shown is not None
+    assert view.analysis is not None
+    flow, order = view.analysis
+    assert len(order) >= 0 and hasattr(flow, "convergence_points")
