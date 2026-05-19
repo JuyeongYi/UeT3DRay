@@ -64,7 +64,7 @@ def parse_objects(src: str) -> list[T3DObject]:
                 try:
                     value = parse_value(raw.strip())
                 except ValueParseError as e:
-                    col = ln.indent + len(key) + 1
+                    col = ln.indent + len(key) + 1 + e.pos
                     raise T3DParseError(ln.number, col, f"속성값 파싱 실패: {e}") from e
                 obj.properties[key.strip()] = value
                 pos += 1

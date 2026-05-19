@@ -28,7 +28,9 @@ class ArrayLiteral(Value):
 
 
 class ValueParseError(ValueError):
-    pass
+    def __init__(self, message: str, pos: int = 0):
+        self.pos = pos
+        super().__init__(message)
 
 
 def parse_value(text: str) -> Value:
@@ -36,7 +38,7 @@ def parse_value(text: str) -> Value:
     v = p.parse()
     p.skip_ws()
     if not p.at_end():
-        raise ValueParseError(f"값 뒤에 남은 입력: {text!r} (pos {p.i})")
+        raise ValueParseError(f"값 뒤에 남은 입력: {text!r}", p.i)
     return v
 
 
@@ -78,7 +80,7 @@ class _Parser:
                 return QuotedString("".join(buf))
             buf.append(c)
             self.i += 1
-        raise ValueParseError("닫히지 않은 따옴표 문자열")
+        raise ValueParseError("닫히지 않은 따옴표 문자열", self.i)
 
     def _scalar(self) -> Scalar:
         start = self.i
@@ -118,20 +120,20 @@ class _Parser:
             key = self._read_ident()
             self.skip_ws()
             if self.at_end() or self.s[self.i] != "=":
-                raise ValueParseError(f"구조체 키 뒤 '=' 기대 (pos {self.i})")
+                raise ValueParseError("구조체 키 뒤 '=' 기대", self.i)
             self.i += 1
             val = self.parse()
             items.append((key, val))
             self.skip_ws()
             if self.at_end():
-                raise ValueParseError("닫히지 않은 구조체")
+                raise ValueParseError("닫히지 않은 구조체", self.i)
             if self.s[self.i] == ",":
                 self.i += 1
                 continue
             if self.s[self.i] == ")":
                 self.i += 1
                 return Struct(items)
-            raise ValueParseError(f"구조체에서 ',' 또는 ')' 기대 (pos {self.i})")
+            raise ValueParseError("구조체에서 ',' 또는 ')' 기대", self.i)
 
     def _array_body(self) -> ArrayLiteral:
         items: list[Value] = []
@@ -140,11 +142,11 @@ class _Parser:
             items.append(val)
             self.skip_ws()
             if self.at_end():
-                raise ValueParseError("닫히지 않은 배열")
+                raise ValueParseError("닫히지 않은 배열", self.i)
             if self.s[self.i] == ",":
                 self.i += 1
                 continue
             if self.s[self.i] == ")":
                 self.i += 1
                 return ArrayLiteral(items)
-            raise ValueParseError(f"배열에서 ',' 또는 ')' 기대 (pos {self.i})")
+            raise ValueParseError("배열에서 ',' 또는 ')' 기대", self.i)
