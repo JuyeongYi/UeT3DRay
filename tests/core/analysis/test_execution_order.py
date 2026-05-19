@@ -3,7 +3,7 @@ from t3dgraph.core.analysis.execution_order import compute_execution_order
 
 
 def _ep(name, d):
-    return Pin(name=name, cpp_type="FRigVMExecuteContext", direction=d)
+    return Pin(name=name, cpp_type="FRigVMExecuteContext", direction=d, is_execution=True)
 
 
 def _n(name, *pins):

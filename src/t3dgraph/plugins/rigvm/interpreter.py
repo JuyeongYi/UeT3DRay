@@ -26,11 +26,13 @@ def _position(obj: T3DObject) -> tuple[float, float] | None:
 
 
 def _build_pin(obj: T3DObject) -> Pin:
+    cpp_type = _text(obj.properties.get("CPPType"))
     return Pin(
         name=obj.name or "",
-        cpp_type=_text(obj.properties.get("CPPType")),
+        cpp_type=cpp_type,
         direction=_text(obj.properties.get("Direction")),
         default_value=_text(obj.properties.get("DefaultValue")),
+        is_execution=t.is_execution_cpp_type(cpp_type),
         subpins=[_build_pin(c) for c in obj.children],
         raw=dict(obj.properties),
     )

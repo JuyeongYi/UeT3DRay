@@ -10,6 +10,7 @@ class Pin:
     cpp_type: str | None
     direction: str | None
     default_value: str | None = None
+    is_execution: bool = False
     subpins: list["Pin"] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
 

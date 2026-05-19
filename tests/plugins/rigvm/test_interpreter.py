@@ -70,3 +70,26 @@ def test_real_rigvmmodel_file(orion_dir):
     g = RigVMGraphInterpreter().interpret(parse_document(f.read_text(encoding="utf-8")))
     assert len(g.nodes) > 0
     assert len(g.links) > 0
+
+
+def test_interpreter_marks_execution_pins():
+    g = RigVMGraphInterpreter().interpret(parse_document(LINK_SRC))
+    exec_pin = g.node_by_name("A").pins[0]
+    assert exec_pin.cpp_type == "FRigVMExecuteContext"
+    assert exec_pin.is_execution is True
+
+
+def test_interpreter_non_execution_pin_flag_false():
+    src = (
+        'Begin Object Class=/Script/RigVMDeveloper.RigVMUnitNode Name="A"\n'
+        '   Begin Object Class=/Script/RigVMDeveloper.RigVMPin Name="V"\n'
+        '   End Object\n'
+        'End Object\n'
+        'Begin Object Name="A"\n'
+        '   Begin Object Name="V"\n'
+        '      CPPType="double"\n'
+        '   End Object\n'
+        'End Object\n'
+    )
+    g = RigVMGraphInterpreter().interpret(parse_document(src))
+    assert g.node_by_name("A").pins[0].is_execution is False

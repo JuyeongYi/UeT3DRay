@@ -19,3 +19,7 @@ def test_pin_subpins_default_empty():
 def test_external_refs_recorded():
     g = GraphModel(nodes=[], links=[], external_refs=["IK_Rig.ExecuteContext"])
     assert "IK_Rig.ExecuteContext" in g.external_refs
+
+
+def test_pin_is_execution_defaults_false():
+    assert Pin(name="X", cpp_type="double", direction="Input").is_execution is False

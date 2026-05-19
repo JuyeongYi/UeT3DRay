@@ -30,7 +30,7 @@ def _exec_pin_index(graph: GraphModel) -> set[tuple[str, str]]:
     out: set[tuple[str, str]] = set()
 
     def walk(node_name: str, pin: Pin) -> None:
-        if pin.cpp_type == "FRigVMExecuteContext":
+        if pin.is_execution:
             out.add((node_name, pin.name))
         for sp in pin.subpins:
             walk(node_name, sp)
