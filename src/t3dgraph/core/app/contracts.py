@@ -10,6 +10,11 @@ class AbstractGraphView(ABC):
         """주어진 GraphModel을 화면에 렌더링한다."""
         raise NotImplementedError
 
+    @abstractmethod
+    def show_analysis(self, flow, order) -> None:
+        """분석 결과(FlowResult, 실행 순서)를 분석 도크에 표시한다."""
+        raise NotImplementedError
+
 
 class AbstractGraphController(ABC):
     @abstractmethod

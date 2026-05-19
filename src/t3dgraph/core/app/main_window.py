@@ -4,8 +4,6 @@ from typing import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMainWindow, QDockWidget, QFileDialog, QTabWidget
 from ..base.graph_model import GraphModel
-from ..analysis.flow import analyze_flow
-from ..analysis.execution_order import compute_execution_order
 from .contracts import AbstractGraphView
 from .scene import GraphScene
 from .graph_view import GraphView
@@ -65,18 +63,19 @@ class MainWindow(QMainWindow):
     def _build_view_mode_toolbar(self) -> None:
         from PySide6.QtGui import QAction
         toolbar = self.addToolBar("뷰 모드")
-        self.view_mode_actions: list[QAction] = []
-        for label, setter, in_place in (
-            ("연결된 핀만", self.view_state.set_connected_pins_only, False),
-            ("깊이 펼침", self.view_state.set_expand_subpins, False),
-            ("fan-in 강조", self.view_state.set_fan_in_highlight, True),
-        ):
+        self._view_mode_actions: dict[str, QAction] = {}
+        specs = (
+            ("connected_only", "연결된 핀만", self.view_state.set_connected_pins_only, False),
+            ("expand_subpins", "깊이 펼침", self.view_state.set_expand_subpins, False),
+            ("fan_in_highlight", "fan-in 강조", self.view_state.set_fan_in_highlight, True),
+        )
+        for mode_id, label, setter, in_place in specs:
             action = QAction(label, self)
             action.setCheckable(True)
             action.toggled.connect(
                 lambda checked, s=setter, ip=in_place: self._on_view_mode(s, checked, ip))
             toolbar.addAction(action)
-            self.view_mode_actions.append(action)
+            self._view_mode_actions[mode_id] = action
 
     def _on_view_mode(self, setter, checked: bool, in_place: bool = False) -> None:
         setter(checked)
@@ -91,11 +90,11 @@ class MainWindow(QMainWindow):
             self.scene.populate(self.graph, view_state=self.view_state,
                                 flow=self._flow)
 
-    def set_view_mode(self, label: str, checked: bool) -> None:
-        for action in self.view_mode_actions:
-            if action.text() == label:
-                action.setChecked(checked)
-                return
+    def set_view_mode(self, mode_id: str, checked: bool) -> None:
+        """안정 식별자로 뷰 모드 토글 — connected_only / expand_subpins / fan_in_highlight."""
+        action = self._view_mode_actions.get(mode_id)
+        if action is not None:
+            action.setChecked(checked)
 
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
@@ -138,16 +137,17 @@ class MainWindow(QMainWindow):
 
     def show_graph(self, graph: GraphModel) -> None:
         self.graph = graph
-        self._flow = analyze_flow(graph)
-        self.scene.populate(graph, view_state=self.view_state, flow=self._flow)
+        self.scene.populate(graph, view_state=self.view_state, flow=None)
         self.node_filter.set_graph(graph)
         self.inspector.show_node(None, graph)
-        self.analysis_panel.show_flow(self._flow)
-        self.exec_order_panel.show_order(
-            compute_execution_order(graph, self._flow))
         self.view.fit()
         self.statusBar().showMessage(
             f"노드 {len(graph.nodes)} · 링크 {len(graph.links)}", 5000)
+
+    def show_analysis(self, flow, order) -> None:
+        self._flow = flow
+        self.analysis_panel.show_flow(flow)
+        self.exec_order_panel.show_order(order)
 
     def show_error(self, message: str) -> None:
         from PySide6.QtWidgets import QMessageBox

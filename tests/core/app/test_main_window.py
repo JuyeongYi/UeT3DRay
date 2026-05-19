@@ -94,24 +94,39 @@ def test_bottom_dock_has_analysis_tabs(qtbot):
 
 
 def test_show_graph_populates_execution_order(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     assert w.exec_order_panel.step_count() == 2
 
 
 def test_analysis_panel_navigate_moves_canvas(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     w.exec_order_panel.activate_row(1)
     assert w.scene.selected_node_name() == "B"
 
 
 def test_canvas_selection_highlights_exec_panel(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
     w = MainWindow()
     qtbot.addWidget(w)
-    w.show_graph(_wired_graph())
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
     w.scene.select_node("A")
     assert w.exec_order_panel.highlighted_node() == "A"
 
@@ -119,16 +134,16 @@ def test_canvas_selection_highlights_exec_panel(qtbot):
 def test_view_mode_toolbar_has_three_toggles(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
-    labels = {a.text() for a in w.view_mode_actions}
+    labels = {a.text() for a in w._view_mode_actions.values()}
     assert labels == {"연결된 핀만", "깊이 펼침", "fan-in 강조"}
-    assert all(a.isCheckable() for a in w.view_mode_actions)
+    assert all(a.isCheckable() for a in w._view_mode_actions.values())
 
 
 def test_toggle_connected_only_rebuilds_scene(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
-    w.set_view_mode("연결된 핀만", True)
+    w.set_view_mode("connected_only", True)
     assert w.view_state.connected_pins_only is True
     assert w.scene.node_item("A") is not None
 
@@ -137,15 +152,28 @@ def test_toggle_expand_subpins_updates_state(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
-    w.set_view_mode("깊이 펼침", True)
+    w.set_view_mode("expand_subpins", True)
     assert w.view_state.expand_subpins is True
 
 
 def test_fan_in_highlight_toggle_keeps_same_node_items(qtbot):
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.analysis.execution_order import compute_execution_order
+    w = MainWindow()
+    qtbot.addWidget(w)
+    g = _wired_graph()
+    w.show_graph(g)
+    flow = analyze_flow(g)
+    w.show_analysis(flow, compute_execution_order(g, flow))
+    before = w.scene.node_item("A")
+    w.set_view_mode("fan_in_highlight", True)
+    after = w.scene.node_item("A")
+    assert before is after
+
+
+def test_set_view_mode_uses_stable_id(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
-    before = w.scene.node_item("A")
-    w.set_view_mode("fan-in 강조", True)
-    after = w.scene.node_item("A")
-    assert before is after
+    w.set_view_mode("connected_only", True)
+    assert w.view_state.connected_pins_only is True

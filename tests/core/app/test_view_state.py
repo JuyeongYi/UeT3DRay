@@ -7,22 +7,24 @@ def test_defaults():
     assert vs.hidden_node_types == set()
 
 
-def test_select_notifies():
+def test_no_observer_api():
     vs = ViewState()
-    seen = []
-    vs.subscribe(lambda: seen.append(vs.selected_node))
+    assert not hasattr(vs, "subscribe")
+    assert not hasattr(vs, "_notify")
+
+
+def test_select_sets_value():
+    vs = ViewState()
     vs.select("NodeA")
     assert vs.selected_node == "NodeA"
-    assert seen == ["NodeA"]
 
 
-def test_set_type_hidden_toggles_and_notifies():
+def test_set_type_hidden_toggles():
     vs = ViewState()
-    calls = []
-    vs.subscribe(lambda: calls.append(set(vs.hidden_node_types)))
-    vs.set_type_hidden("RigVMUnitNode", True)
-    vs.set_type_hidden("RigVMUnitNode", False)
-    assert calls == [{"RigVMUnitNode"}, set()]
+    vs.set_type_hidden("X", True)
+    assert vs.is_type_hidden("X") is True
+    vs.set_type_hidden("X", False)
+    assert vs.is_type_hidden("X") is False
 
 
 def test_is_type_hidden():
@@ -39,13 +41,12 @@ def test_view_mode_defaults_false():
     assert vs.fan_in_highlight is False
 
 
-def test_set_connected_only_notifies():
+def test_view_mode_setters():
     vs = ViewState()
-    seen = []
-    vs.subscribe(lambda: seen.append(vs.connected_pins_only))
     vs.set_connected_pins_only(True)
-    assert vs.connected_pins_only is True
-    assert seen == [True]
+    vs.set_expand_subpins(True)
+    vs.set_fan_in_highlight(True)
+    assert (vs.connected_pins_only, vs.expand_subpins, vs.fan_in_highlight) == (True, True, True)
 
 
 def test_set_expand_subpins_and_fan_in():

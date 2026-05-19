@@ -1,16 +1,16 @@
 """분석 도크 — 실행 순서 코드 뷰."""
 from __future__ import annotations
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontDatabase
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QListWidget, QListWidgetItem
+from PySide6.QtWidgets import QVBoxLayout, QListWidget, QListWidgetItem
 from ..analysis.execution_order import ExecutionStep
+from .navigable_panel import NavigablePanel
 
 _NODE_ROLE = Qt.UserRole + 1
 _INDENT = "    "
 
 
-class ExecutionOrderPanel(QWidget):
-    navigate_requested = Signal(str)
+class ExecutionOrderPanel(NavigablePanel):
 
     def __init__(self) -> None:
         super().__init__()

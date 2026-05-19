@@ -1,14 +1,14 @@
 """분석 도크 — fan-in 수렴점 목록."""
 from __future__ import annotations
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
 from ..analysis.flow import FlowResult
+from .navigable_panel import NavigablePanel
 
 _NODE_ROLE = Qt.UserRole + 1
 
 
-class AnalysisPanel(QWidget):
-    navigate_requested = Signal(str)
+class AnalysisPanel(NavigablePanel):
 
     def __init__(self) -> None:
         super().__init__()
