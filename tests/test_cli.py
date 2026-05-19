@@ -32,3 +32,9 @@ def test_cli_handles_utf16(tmp_path, orion_dir):
     f = tmp_path / "u16.t3d.txt"
     f.write_bytes(_sample(orion_dir).encode("utf-16"))
     assert run([str(f)]) == 0
+
+
+def test_cli_summary_includes_external_refs(orion_dir, capsys):
+    f = orion_dir / "Game_Characters_workshop_Meshes_SKM_workshop_upper_weldingArm_CR__RigVMModel.t3d.txt"
+    assert run([str(f)]) == 0
+    assert "external refs:" in capsys.readouterr().out

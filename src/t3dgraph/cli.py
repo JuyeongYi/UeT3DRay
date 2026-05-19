@@ -47,6 +47,7 @@ def run(argv: list[str]) -> int:
     print(f"nodes: {len(graph.nodes)}  (generic: {sum(n.is_generic for n in graph.nodes)})")
     print(f"links: {len(graph.links)}")
     print(f"variable refs: {len(graph.variable_refs)}")
+    print(f"external refs: {len(graph.external_refs)}")
     print(f"execution edges: {len(flow.execution_edges)}")
     print(f"convergence points (fan-in): {flow.convergence_points or '없음'}")
     print(f"execution steps: {len(order)}")
