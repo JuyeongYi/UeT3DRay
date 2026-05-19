@@ -44,6 +44,14 @@
 | P2c-B1 | 네비게이션·하이라이트 보일러플레이트가 inspector/analysis/execution_order 3개 패널에 중복 — 공용 베이스 추출. |
 | P2c-A1 | `ExecutionOrderPanel`이 `QFont("Consolas")` 하드코딩 — `QFont.Monospace` styleHint 권장. |
 
+## improver Phase 2d 리뷰 findings (2026-05-19) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| P2d-A1 | '깊이 펼침' 시에도 서브핀 링크가 부모 핀에 앵커 — `_add_link`이 `_seg(path,1)`만 사용. 서브핀 링크가 깊이 펼침 효과에 미반영. |
+| P2d-A2 | fan-in 강조 토글이 펜만 바뀌는데 씬 전체 재구축 — 대형 그래프 과함. in-place 펜 갱신 권장. |
+| P2d-B1 | `set_view_mode`가 프로그램 API를 한글 UI 라벨 문자열에 결합 — 안정 식별자로 분리. |
+
 ## 기능 아이디어 (spec §3.3 향후 확장)
 
 | ID | 내용 |
