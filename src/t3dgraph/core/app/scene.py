@@ -2,7 +2,9 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
+from ..analysis.flow import FlowResult
 from .items import NodeItem, LinkItem
+from .view_state import ViewState
 
 
 def _seg(pin_path: str, index: int) -> str:
@@ -23,16 +25,42 @@ class GraphScene(QGraphicsScene):
     def node_item(self, name: str) -> NodeItem | None:
         return self._nodes.get(name)
 
-    def populate(self, graph: GraphModel) -> None:
+    def populate(self, graph: GraphModel, *,
+                 view_state: ViewState | None = None,
+                 flow: FlowResult | None = None) -> None:
+        vs = view_state or ViewState()
+        keep_selected = self.selected_node_name()
         self.clear()
         self._nodes = {}
         self._links = []
+
+        connected = self._connected_paths_by_node(graph)
+        convergence = set(flow.convergence_points) if flow is not None else set()
+
         for node in graph.nodes:
-            item = NodeItem(node)
+            item = NodeItem(
+                node,
+                connected_paths=frozenset(connected.get(node.name, set())),
+                connected_only=vs.connected_pins_only,
+                show_subpins=vs.expand_subpins,
+                highlighted=vs.fan_in_highlight and node.name in convergence,
+            )
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
             self._add_link(link)
+
+        self.apply_hidden_types(vs.hidden_node_types)
+        if keep_selected in self._nodes:
+            self.select_node(keep_selected)
+
+    @staticmethod
+    def _connected_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {}
+        for link in graph.links:
+            for path in (link.source_path, link.target_path):
+                out.setdefault(_seg(path, 0), set()).add(path)
+        return out
 
     def _add_link(self, link: Link) -> None:
         s_node, t_node = _seg(link.source_path, 0), _seg(link.target_path, 0)
