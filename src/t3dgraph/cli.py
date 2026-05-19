@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 from .core.t3d.document import parse_document
+from .core.t3d.objects import T3DParseError
 from .core.registry import default_registry
 from .core.analysis.flow import analyze_flow
 from .core.analysis.execution_order import compute_execution_order
@@ -32,6 +33,9 @@ def run(argv: list[str]) -> int:
     except UnicodeDecodeError as e:
         print(f"파일 인코딩을 해석할 수 없습니다: {path} ({e})", file=sys.stderr)
         return 2
+    except T3DParseError as e:
+        print(f"T3D 파싱 실패: {path}: {e}", file=sys.stderr)
+        return 4
     registry = default_registry()
     try:
         plugin = registry.detect(doc)
