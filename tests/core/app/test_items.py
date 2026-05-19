@@ -79,3 +79,21 @@ def test_pin_anchor_uses_full_path_keying(qtbot):
     item = NodeItem(node)
     anchor = item.pin_anchor("In", "Input")
     assert anchor.x() == 100.0
+
+
+def test_pin_anchor_resolves_subpin_when_expanded(qtbot):
+    sub = Pin(name="X", cpp_type="double", direction="Input")
+    parent = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
+    node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent])
+    item = NodeItem(node, show_subpins=True)
+    sub_anchor = item.pin_anchor("T.X", "Input")
+    parent_anchor = item.pin_anchor("T", "Input")
+    assert sub_anchor.y() != parent_anchor.y()
+
+
+def test_pin_anchor_subpin_falls_back_to_parent_when_collapsed(qtbot):
+    sub = Pin(name="X", cpp_type="double", direction="Input")
+    parent = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
+    node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent])
+    item = NodeItem(node, show_subpins=False)
+    assert item.pin_anchor("T.X", "Input").y() == item.pin_anchor("T", "Input").y()
