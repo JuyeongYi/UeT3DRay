@@ -29,6 +29,7 @@ class GraphScene(QGraphicsScene):
         connected = self._connected_paths_by_node(graph)
         convergence = set(flow.convergence_points) if flow is not None else set()
 
+        fallback_i = 0
         for node in graph.nodes:
             item = NodeItem(
                 node,
@@ -37,6 +38,9 @@ class GraphScene(QGraphicsScene):
                 show_subpins=vs.expand_subpins,
                 highlighted=vs.fan_in_highlight and node.name in convergence,
             )
+            if node.position is None:
+                item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
+                fallback_i += 1
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:

@@ -104,6 +104,20 @@ def test_fan_in_highlight_marks_convergence(qtbot):
     assert hot != plain
 
 
+def test_position_missing_nodes_get_distinct_fallback(qtbot):
+    from t3dgraph.core.base.graph_model import GraphModel, Node
+    g = GraphModel(nodes=[
+        Node(name="A", cls="X", position=None),
+        Node(name="B", cls="X", position=None),
+        Node(name="C", cls="X", position=None),
+    ], links=[])
+    scene = GraphScene()
+    scene.populate(g)
+    pts = {(scene.node_item(n).pos().x(), scene.node_item(n).pos().y())
+           for n in ("A", "B", "C")}
+    assert len(pts) == 3
+
+
 def test_hidden_node_also_hides_its_links(qtbot):
     from t3dgraph.core.app.items import LinkItem
     scene = GraphScene()
