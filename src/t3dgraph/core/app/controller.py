@@ -5,6 +5,7 @@ from pathlib import Path
 from ..registry import default_registry
 from ..t3d.document import parse_document
 from ..t3d.objects import T3DParseError
+from ..t3d.encoding import read_t3d_text
 from .contracts import AbstractGraphController, AbstractGraphView
 
 
@@ -14,13 +15,6 @@ def load_ref(ref: str | None):
         return None
     module_path, _, attr = ref.partition(":")
     return getattr(importlib.import_module(module_path), attr)
-
-
-def _read_text(path: Path) -> str:
-    data = path.read_bytes()
-    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
-        return data.decode("utf-16")
-    return data.decode("utf-8-sig")
 
 
 class AppController(AbstractGraphController):
@@ -33,7 +27,7 @@ class AppController(AbstractGraphController):
             self._fail(f"파일을 찾을 수 없습니다: {path}")
             return
         try:
-            doc = parse_document(_read_text(p))
+            doc = parse_document(read_t3d_text(p))
         except (UnicodeDecodeError, T3DParseError) as e:
             self._fail(f"파싱 실패: {e}")
             return
