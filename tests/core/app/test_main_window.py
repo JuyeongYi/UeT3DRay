@@ -43,9 +43,9 @@ def test_has_three_docks(qtbot):
 def _wired_graph():
     from t3dgraph.core.base.graph_model import GraphModel, Node, Pin, Link
     a = Node(name="A", cls="/X.RigVMUnitNode", position=(0.0, 0.0),
-             pins=[Pin("Out", "exec", "Output")])
+             pins=[Pin("Out", "FRigVMExecuteContext", "Output", is_execution=True)])
     b = Node(name="B", cls="/X.RigVMDispatchNode", position=(400.0, 0.0),
-             pins=[Pin("In", "exec", "Input")])
+             pins=[Pin("In", "FRigVMExecuteContext", "Input", is_execution=True)])
     return GraphModel(nodes=[a, b], links=[Link("A.Out", "B.In")])
 
 
@@ -81,3 +81,36 @@ def test_navigate_request_selects_peer(qtbot):
     w.scene.select_node("A")
     w.inspector.activate_pin("Out")
     assert w.scene.selected_node_name() == "B"
+
+
+def test_bottom_dock_has_analysis_tabs(qtbot):
+    from PySide6.QtWidgets import QTabWidget
+    w = MainWindow()
+    qtbot.addWidget(w)
+    tabs = w.dock_bottom.widget()
+    assert isinstance(tabs, QTabWidget)
+    titles = {tabs.tabText(i) for i in range(tabs.count())}
+    assert titles == {"수렴점", "실행 순서"}
+
+
+def test_show_graph_populates_execution_order(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    assert w.exec_order_panel.step_count() == 2
+
+
+def test_analysis_panel_navigate_moves_canvas(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.exec_order_panel.activate_row(1)
+    assert w.scene.selected_node_name() == "B"
+
+
+def test_canvas_selection_highlights_exec_panel(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.scene.select_node("A")
+    assert w.exec_order_panel.highlighted_node() == "A"
