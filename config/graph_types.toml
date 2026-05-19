@@ -1,1 +1,5 @@
-# graph type → interpreter 매핑. Task 11에서 채움.
+# graph type → interpreter 매핑.
+# 내장 플러그인은 plugins/<id>/__init__.py 가 self-register 한다.
+[graph_types.rigvm]
+class_prefixes = ["/Script/RigVMDeveloper.", "/Script/ControlRigDeveloper."]
+interpreter    = "t3dgraph.plugins.rigvm.interpreter:RigVMGraphInterpreter"
