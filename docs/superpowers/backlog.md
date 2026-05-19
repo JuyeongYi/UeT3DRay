@@ -52,6 +52,13 @@
 | P2d-A2 | fan-in 강조 토글이 펜만 바뀌는데 씬 전체 재구축 — 대형 그래프 과함. in-place 펜 갱신 권장. |
 | P2d-B1 | `set_view_mode`가 프로그램 API를 한글 UI 라벨 문자열에 결합 — 안정 식별자로 분리. |
 
+## 정리 batch ① 리뷰 findings (2026-05-19) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| BL1-B1 | `paths.py`가 `core/t3d`에 위치하나 핀/클래스 경로 헬퍼는 그래프 모델 개념 — spec §4.1상 `core/t3d`는 그래프-타입 무관 구조 파서. 소비자가 analysis·plugin·app뿐이므로 `core/base`로 이동 권장. (중앙화는 옳았으나 위치가 한 단계 낮음.) |
+| BL1-B2 | `pin_segment(path, 0)`이 `node_of`와 중복 — 호출부 일관화. |
+
 ## 기능 아이디어 (spec §3.3 향후 확장)
 
 | ID | 내용 |
