@@ -1,0 +1,14 @@
+pyproject.toml
+src/t3dgraph/__init__.py
+src/t3dgraph.egg-info/PKG-INFO
+src/t3dgraph.egg-info/SOURCES.txt
+src/t3dgraph.egg-info/dependency_links.txt
+src/t3dgraph.egg-info/entry_points.txt
+src/t3dgraph.egg-info/requires.txt
+src/t3dgraph.egg-info/top_level.txt
+src/t3dgraph/core/__init__.py
+src/t3dgraph/core/analysis/__init__.py
+src/t3dgraph/core/base/__init__.py
+src/t3dgraph/core/t3d/__init__.py
+src/t3dgraph/plugins/__init__.py
+src/t3dgraph/plugins/rigvm/__init__.py
