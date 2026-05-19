@@ -66,6 +66,44 @@ def test_apply_hidden_types_hides_nodes(qtbot):
     assert scene.node_item("C").isVisible() is True
 
 
+def test_populate_with_connected_only(qtbot):
+    from t3dgraph.core.app.view_state import ViewState
+    from t3dgraph.core.app.items import HEADER_HEIGHT, ROW_HEIGHT
+    g = _graph()
+    vs = ViewState()
+    vs.connected_pins_only = True
+    scene = GraphScene()
+    scene.populate(g, view_state=vs)
+    assert scene.node_item("A").rect().height() == HEADER_HEIGHT + 1 * ROW_HEIGHT
+
+
+def test_populate_preserves_selection(qtbot):
+    from t3dgraph.core.app.view_state import ViewState
+    scene = GraphScene()
+    scene.populate(_graph())
+    scene.select_node("B")
+    scene.populate(_graph(), view_state=ViewState())
+    assert scene.selected_node_name() == "B"
+
+
+def test_fan_in_highlight_marks_convergence(qtbot):
+    from t3dgraph.core.app.view_state import ViewState
+    from t3dgraph.core.analysis.flow import analyze_flow
+    from t3dgraph.core.base.graph_model import GraphModel, Node, Pin, Link
+    def ep(n, d): return Pin(name=n, cpp_type="x", direction=d, is_execution=True)
+    a = Node(name="A", cls="X", position=(0.0, 0.0), pins=[ep("O", "Output")])
+    b = Node(name="B", cls="X", position=(0.0, 100.0), pins=[ep("O", "Output")])
+    c = Node(name="C", cls="X", position=(200.0, 50.0), pins=[ep("I", "Input")])
+    g = GraphModel(nodes=[a, b, c], links=[Link("A.O", "C.I"), Link("B.O", "C.I")])
+    vs = ViewState()
+    vs.fan_in_highlight = True
+    scene = GraphScene()
+    scene.populate(g, view_state=vs, flow=analyze_flow(g))
+    plain = scene.node_item("A").pen().color()
+    hot = scene.node_item("C").pen().color()
+    assert hot != plain
+
+
 def test_hidden_node_also_hides_its_links(qtbot):
     from t3dgraph.core.app.items import LinkItem
     scene = GraphScene()

@@ -114,3 +114,28 @@ def test_canvas_selection_highlights_exec_panel(qtbot):
     w.show_graph(_wired_graph())
     w.scene.select_node("A")
     assert w.exec_order_panel.highlighted_node() == "A"
+
+
+def test_view_mode_toolbar_has_three_toggles(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    labels = {a.text() for a in w.view_mode_actions}
+    assert labels == {"연결된 핀만", "깊이 펼침", "fan-in 강조"}
+    assert all(a.isCheckable() for a in w.view_mode_actions)
+
+
+def test_toggle_connected_only_rebuilds_scene(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.set_view_mode("연결된 핀만", True)
+    assert w.view_state.connected_pins_only is True
+    assert w.scene.node_item("A") is not None
+
+
+def test_toggle_expand_subpins_updates_state(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.set_view_mode("깊이 펼침", True)
+    assert w.view_state.expand_subpins is True
