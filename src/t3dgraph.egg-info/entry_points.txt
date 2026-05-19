@@ -1,0 +1,2 @@
+[console_scripts]
+t3dgraph = t3dgraph.cli:main
