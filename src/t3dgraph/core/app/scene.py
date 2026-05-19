@@ -86,6 +86,10 @@ class GraphScene(QGraphicsScene):
                 pass
         return None
 
+    def apply_fan_in_highlight(self, convergence: set[str], on: bool) -> None:
+        for name, item in self._nodes.items():
+            item.set_highlighted(on and name in convergence)
+
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():
             item.setVisible(type_suffix(item.node.cls) not in hidden_types)

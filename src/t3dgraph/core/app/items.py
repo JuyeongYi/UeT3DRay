@@ -91,6 +91,13 @@ class NodeItem(QGraphicsRectItem):
         return self.mapToScene(QPointF(lx, cy))
 
 
+    def set_highlighted(self, on: bool) -> None:
+        if on:
+            self.setPen(QPen(QColor(255, 180, 60), 2.5))
+        else:
+            self.setPen(QPen(QColor(40, 40, 40)))
+
+
 class LinkItem(QGraphicsLineItem):
     """두 핀 앵커를 잇는 선."""
 
