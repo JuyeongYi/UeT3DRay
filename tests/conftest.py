@@ -1,3 +1,7 @@
+import os
+# pytest-qt 테스트를 디스플레이 없이 실행
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from pathlib import Path
 import pytest
 

@@ -10,10 +10,12 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8", "pytest-qt>=4.4", "PySide6>=6.6"]
 
 [project.scripts]
 t3dgraph = "t3dgraph.cli:main"
+t3dgraph-gui = "t3dgraph.core.app.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
