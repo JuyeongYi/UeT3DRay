@@ -42,3 +42,40 @@ def test_node_item_unknown_pin_anchor_falls_back_to_center(qtbot):
     item = NodeItem(_node())
     anchor = item.pin_anchor("Missing", "Input")
     assert anchor.x() == 100.0 + NODE_WIDTH / 2
+
+
+def test_subpins_rendered_when_expanded(qtbot):
+    sub = Pin(name="X", cpp_type="double", direction="Input")
+    parent_pin = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
+    node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent_pin])
+    flat = NodeItem(node, show_subpins=True)
+    deep = NodeItem(node, show_subpins=False)
+    assert flat.rect().height() == HEADER_HEIGHT + 2 * ROW_HEIGHT
+    assert deep.rect().height() == HEADER_HEIGHT + 1 * ROW_HEIGHT
+
+
+def test_connected_only_filters_unconnected_pins(qtbot):
+    node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[
+        Pin(name="A", cpp_type="exec", direction="Output"),
+        Pin(name="B", cpp_type="double", direction="Input"),
+    ])
+    item = NodeItem(node, connected_paths=frozenset({"N.A"}), connected_only=True)
+    assert item.rect().height() == HEADER_HEIGHT + 1 * ROW_HEIGHT
+    assert item.has_pin_row("N.A") is True
+    assert item.has_pin_row("N.B") is False
+
+
+def test_highlighted_node_has_distinct_pen(qtbot):
+    node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[])
+    plain = NodeItem(node)
+    hot = NodeItem(node, highlighted=True)
+    assert hot.pen().color() != plain.pen().color()
+
+
+def test_pin_anchor_uses_full_path_keying(qtbot):
+    node = Node(name="N", cls="X", position=(100.0, 50.0), pins=[
+        Pin(name="In", cpp_type="exec", direction="Input"),
+    ])
+    item = NodeItem(node)
+    anchor = item.pin_anchor("In", "Input")
+    assert anchor.x() == 100.0
