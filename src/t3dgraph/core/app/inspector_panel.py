@@ -66,7 +66,7 @@ class InspectorPanel(QWidget):
             if peer:
                 item.setData(0, _PEER_ROLE, peer)
         parent.addChild(item)
-        self._items[pin.name] = item
+        self._items[full] = item
         for sub in pin.subpins:
             self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
 
@@ -78,15 +78,15 @@ class InspectorPanel(QWidget):
     def pin_count(self) -> int:
         return len(self._items)
 
-    def is_pin_connected(self, pin_name: str) -> bool:
-        item = self._items.get(pin_name)
+    def is_pin_connected(self, full_path: str) -> bool:
+        item = self._items.get(full_path)
         return item is not None and "연결됨" in item.text(4)
 
-    def is_pin_changed(self, pin_name: str) -> bool:
-        item = self._items.get(pin_name)
+    def is_pin_changed(self, full_path: str) -> bool:
+        item = self._items.get(full_path)
         return item is not None and "변경됨" in item.text(4)
 
-    def activate_pin(self, pin_name: str) -> None:
-        item = self._items.get(pin_name)
+    def activate_pin(self, full_path: str) -> None:
+        item = self._items.get(full_path)
         if item is not None:
             self._on_activated(item, 0)

@@ -77,14 +77,25 @@ class NodeItem(QGraphicsRectItem):
     def has_pin_row(self, full_path: str) -> bool:
         return full_path in self._rows
 
-    def pin_anchor(self, pin_name: str, direction: str) -> QPointF:
-        """핀의 씬 좌표 앵커. 알 수 없는 핀은 노드 중앙으로 폴백."""
-        full_path = f"{self.node.name}.{pin_name}"
-        cy = self._rows.get(full_path)
+    def pin_anchor(self, pin_subpath: str, direction: str) -> QPointF:
+        """핀 앵커. pin_subpath는 노드 이후 경로('Pin' 또는 'Pin.Sub').
+        펼쳐진 서브핀 행이 있으면 거기에, 없으면 최상위 핀 행, 그것도 없으면 노드 중앙."""
+        full = f"{self.node.name}.{pin_subpath}"
+        cy = self._rows.get(full)
+        if cy is None:
+            top = pin_subpath.split(".", 1)[0]
+            cy = self._rows.get(f"{self.node.name}.{top}")
         if cy is None:
             return self.mapToScene(QPointF(NODE_WIDTH / 2, self.rect().height() / 2))
         lx = NODE_WIDTH if (direction or "").lower() == "output" else 0.0
         return self.mapToScene(QPointF(lx, cy))
+
+
+    def set_highlighted(self, on: bool) -> None:
+        if on:
+            self.setPen(QPen(QColor(255, 180, 60), 2.5))
+        else:
+            self.setPen(QPen(QColor(40, 40, 40)))
 
 
 class LinkItem(QGraphicsLineItem):

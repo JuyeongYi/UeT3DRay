@@ -66,21 +66,25 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QAction
         toolbar = self.addToolBar("뷰 모드")
         self.view_mode_actions: list[QAction] = []
-        for label, setter in (
-            ("연결된 핀만", self.view_state.set_connected_pins_only),
-            ("깊이 펼침", self.view_state.set_expand_subpins),
-            ("fan-in 강조", self.view_state.set_fan_in_highlight),
+        for label, setter, in_place in (
+            ("연결된 핀만", self.view_state.set_connected_pins_only, False),
+            ("깊이 펼침", self.view_state.set_expand_subpins, False),
+            ("fan-in 강조", self.view_state.set_fan_in_highlight, True),
         ):
             action = QAction(label, self)
             action.setCheckable(True)
             action.toggled.connect(
-                lambda checked, s=setter: self._on_view_mode(s, checked))
+                lambda checked, s=setter, ip=in_place: self._on_view_mode(s, checked, ip))
             toolbar.addAction(action)
             self.view_mode_actions.append(action)
 
-    def _on_view_mode(self, setter, checked: bool) -> None:
+    def _on_view_mode(self, setter, checked: bool, in_place: bool = False) -> None:
         setter(checked)
-        self._rebuild_scene()
+        if in_place and self._flow is not None:
+            self.scene.apply_fan_in_highlight(
+                set(self._flow.convergence_points), checked)
+        else:
+            self._rebuild_scene()
 
     def _rebuild_scene(self) -> None:
         if self.graph is not None:

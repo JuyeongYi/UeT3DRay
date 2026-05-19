@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
-from ..t3d.paths import pin_segment, type_suffix
+from ..t3d.paths import pin_segment, type_suffix, node_of
 from .items import NodeItem, LinkItem
 from .view_state import ViewState
 
@@ -29,6 +29,7 @@ class GraphScene(QGraphicsScene):
         connected = self._connected_paths_by_node(graph)
         convergence = set(flow.convergence_points) if flow is not None else set()
 
+        fallback_i = 0
         for node in graph.nodes:
             item = NodeItem(
                 node,
@@ -37,6 +38,9 @@ class GraphScene(QGraphicsScene):
                 show_subpins=vs.expand_subpins,
                 highlighted=vs.fan_in_highlight and node.name in convergence,
             )
+            if node.position is None:
+                item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
+                fallback_i += 1
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
@@ -55,12 +59,14 @@ class GraphScene(QGraphicsScene):
         return out
 
     def _add_link(self, link: Link) -> None:
-        s_node, t_node = pin_segment(link.source_path, 0), pin_segment(link.target_path, 0)
+        s_node, t_node = node_of(link.source_path), node_of(link.target_path)
         src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
         if src is None or dst is None:
             return
-        p1 = src.pin_anchor(pin_segment(link.source_path, 1), "Output")
-        p2 = dst.pin_anchor(pin_segment(link.target_path, 1), "Input")
+        s_sub = link.source_path.split(".", 1)[1] if "." in link.source_path else ""
+        t_sub = link.target_path.split(".", 1)[1] if "." in link.target_path else ""
+        p1 = src.pin_anchor(s_sub, "Output")
+        p2 = dst.pin_anchor(t_sub, "Input")
         item = LinkItem(p1, p2)
         self.addItem(item)
         self._links.append((item, s_node, t_node))
@@ -79,6 +85,10 @@ class GraphScene(QGraphicsScene):
             except RuntimeError:
                 pass
         return None
+
+    def apply_fan_in_highlight(self, convergence: set[str], on: bool) -> None:
+        for name, item in self._nodes.items():
+            item.set_highlighted(on and name in convergence)
 
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():

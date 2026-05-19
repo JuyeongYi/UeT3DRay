@@ -42,3 +42,18 @@ def test_empty_struct_not_changed():
 
 def test_struct_with_value_changed():
     assert is_changed_from_default(_pin("FQuat", "(X=0.0,W=1.0)")) is True
+
+
+def test_zero_struct_not_changed():
+    assert is_changed_from_default(
+        _pin("FVector", "(X=0.000000,Y=0.000000,Z=0.000000)")) is False
+
+
+def test_nonzero_struct_changed():
+    assert is_changed_from_default(
+        _pin("FVector", "(X=1.000000,Y=0.000000,Z=0.000000)")) is True
+
+
+def test_nested_zero_struct_not_changed():
+    assert is_changed_from_default(
+        _pin("FTransform", "(Rotation=(X=0,Y=0,Z=0),Translation=(X=0,Y=0,Z=0))")) is False

@@ -79,7 +79,7 @@ def test_navigate_request_selects_peer(qtbot):
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
     w.scene.select_node("A")
-    w.inspector.activate_pin("Out")
+    w.inspector.activate_pin("A.Out")
     assert w.scene.selected_node_name() == "B"
 
 
@@ -139,3 +139,13 @@ def test_toggle_expand_subpins_updates_state(qtbot):
     w.show_graph(_wired_graph())
     w.set_view_mode("깊이 펼침", True)
     assert w.view_state.expand_subpins is True
+
+
+def test_fan_in_highlight_toggle_keeps_same_node_items(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    before = w.scene.node_item("A")
+    w.set_view_mode("fan-in 강조", True)
+    after = w.scene.node_item("A")
+    assert before is after
