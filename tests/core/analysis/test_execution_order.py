@@ -33,3 +33,12 @@ def test_branch_increases_depth():
 
 def test_empty_graph():
     assert compute_execution_order(GraphModel()) == []
+
+
+def test_compute_with_precomputed_flow_matches():
+    from t3dgraph.core.analysis.flow import analyze_flow
+    a = _n("A", _ep("O", "Output"))
+    b = _n("B", _ep("I", "Input"))
+    g = GraphModel(nodes=[a, b], links=[Link("A.O", "B.I")])
+    flow = analyze_flow(g)
+    assert compute_execution_order(g, flow=flow) == compute_execution_order(g)

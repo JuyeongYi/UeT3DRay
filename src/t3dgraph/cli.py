@@ -29,7 +29,7 @@ def run(argv: list[str]) -> int:
 
     graph = plugin.interpreter_factory().interpret(doc)
     flow = analyze_flow(graph)
-    order = compute_execution_order(graph)
+    order = compute_execution_order(graph, flow=flow)
 
     print(f"graph type: {plugin.id}")
     print(f"nodes: {len(graph.nodes)}  (generic: {sum(n.is_generic for n in graph.nodes)})")

@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from ..base.graph_model import GraphModel
-from .flow import analyze_flow
+from .flow import analyze_flow, FlowResult
 
 
 @dataclass
@@ -11,8 +11,11 @@ class ExecutionStep:
     depth: int
 
 
-def compute_execution_order(graph: GraphModel) -> list[ExecutionStep]:
-    flow = analyze_flow(graph)
+def compute_execution_order(
+    graph: GraphModel, flow: FlowResult | None = None
+) -> list[ExecutionStep]:
+    if flow is None:
+        flow = analyze_flow(graph)
     out_edges: dict[str, list[str]] = {}
     in_count: dict[str, int] = {}
     nodes_in_flow: set[str] = set()
