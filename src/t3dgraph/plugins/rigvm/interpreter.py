@@ -6,6 +6,7 @@ from ...core.base.graph_model import GraphModel, Node, Pin, Link, VariableRef
 from ...core.t3d.document import T3DDocument
 from ...core.t3d.objects import T3DObject
 from ...core.t3d.values import Value, Scalar, QuotedString, Struct
+from ...core.t3d.paths import node_of
 
 
 def _text(v: Value | None) -> str | None:
@@ -53,7 +54,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         known = {n.name for n in g.nodes}
         for link in g.links:
             for path in (link.source_path, link.target_path):
-                node = path.split(".", 1)[0]
+                node = node_of(path)
                 if node not in known and path not in g.external_refs:
                     g.external_refs.append(path)
         return g

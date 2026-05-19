@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from ..base.graph_model import GraphModel, Pin
+from ..t3d.paths import node_of, pin_segment
 
 
 @dataclass
@@ -23,10 +24,6 @@ class FlowResult:
         return self._convergences[node]
 
 
-def _node_of(pin_path: str) -> str:
-    return pin_path.split(".", 1)[0]
-
-
 def _exec_pin_index(graph: GraphModel) -> set[tuple[str, str]]:
     out: set[tuple[str, str]] = set()
 
@@ -42,17 +39,12 @@ def _exec_pin_index(graph: GraphModel) -> set[tuple[str, str]]:
     return out
 
 
-def _pin_name(pin_path: str) -> str:
-    parts = pin_path.split(".")
-    return parts[1] if len(parts) > 1 else ""
-
-
 def analyze_flow(graph: GraphModel) -> FlowResult:
     exec_pins = _exec_pin_index(graph)
     edges: list[tuple[str, str]] = []
     for link in graph.links:
-        s_node, t_node = _node_of(link.source_path), _node_of(link.target_path)
-        s_pin, t_pin = _pin_name(link.source_path), _pin_name(link.target_path)
+        s_node, t_node = node_of(link.source_path), node_of(link.target_path)
+        s_pin, t_pin = pin_segment(link.source_path, 1), pin_segment(link.target_path, 1)
         if (s_node, s_pin) in exec_pins and (t_node, t_pin) in exec_pins:
             edges.append((s_node, t_node))
 
