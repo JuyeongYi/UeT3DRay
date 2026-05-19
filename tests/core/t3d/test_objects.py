@@ -52,3 +52,13 @@ def test_bad_value_wrapped_with_file_line():
         parse_objects(src)
     assert ei.value.line == 2
     assert ei.value.col > 0
+
+
+def test_bad_value_col_reflects_value_internal_pos():
+    import pytest
+    from t3dgraph.core.t3d.objects import T3DParseError
+    src = 'Begin Object Name="N"\n   Bad=(X=1,Y=2\nEnd Object\n'
+    with pytest.raises(T3DParseError) as ei:
+        parse_objects(src)
+    assert ei.value.line == 2
+    assert ei.value.col > 3 + 3 + 1

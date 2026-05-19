@@ -36,3 +36,12 @@ def test_quoted_string_with_comma_and_parens():
 def test_struct_value_can_be_quoted():
     v = parse_value('(Name="a,b",Count=2)')
     assert v == Struct([("Name", QuotedString("a,b")), ("Count", Scalar("2"))])
+
+
+def test_value_parse_error_has_pos():
+    import pytest
+    from t3dgraph.core.t3d.values import parse_value, ValueParseError
+    with pytest.raises(ValueParseError) as ei:
+        parse_value("(X=1")
+    assert isinstance(ei.value.pos, int)
+    assert ei.value.pos > 0

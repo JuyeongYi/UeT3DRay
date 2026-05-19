@@ -38,3 +38,13 @@ def test_cli_summary_includes_external_refs(orion_dir, capsys):
     f = orion_dir / "Game_Characters_workshop_Meshes_SKM_workshop_upper_weldingArm_CR__RigVMModel.t3d.txt"
     assert run([str(f)]) == 0
     assert "external refs:" in capsys.readouterr().out
+
+
+def test_cli_malformed_file_reports_error(tmp_path, capsys):
+    bad = tmp_path / "bad.t3d.txt"
+    bad.write_text('Begin Object Name="N"\n', encoding="utf-8")
+    code = run([str(bad)])
+    assert code != 0
+    assert code != 1
+    err = capsys.readouterr().err
+    assert "파싱" in err

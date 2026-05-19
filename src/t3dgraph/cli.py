@@ -4,17 +4,11 @@ import argparse
 import sys
 from pathlib import Path
 from .core.t3d.document import parse_document
+from .core.t3d.objects import T3DParseError
+from .core.t3d.encoding import read_t3d_text
 from .core.registry import default_registry
 from .core.analysis.flow import analyze_flow
 from .core.analysis.execution_order import compute_execution_order
-
-
-def _read_text(path: Path) -> str:
-    """BOM·UTF-16 익스포트도 처리하는 견고한 텍스트 읽기."""
-    data = path.read_bytes()
-    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
-        return data.decode("utf-16")
-    return data.decode("utf-8-sig")
 
 
 def run(argv: list[str]) -> int:
@@ -28,10 +22,13 @@ def run(argv: list[str]) -> int:
         return 2
 
     try:
-        doc = parse_document(_read_text(path))
+        doc = parse_document(read_t3d_text(path))
     except UnicodeDecodeError as e:
         print(f"파일 인코딩을 해석할 수 없습니다: {path} ({e})", file=sys.stderr)
         return 2
+    except T3DParseError as e:
+        print(f"T3D 파싱 실패: {path}: {e}", file=sys.stderr)
+        return 4
     registry = default_registry()
     try:
         plugin = registry.detect(doc)

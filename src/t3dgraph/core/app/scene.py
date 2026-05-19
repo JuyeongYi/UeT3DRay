@@ -3,17 +3,9 @@ from __future__ import annotations
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
+from ..t3d.paths import pin_segment, type_suffix
 from .items import NodeItem, LinkItem
 from .view_state import ViewState
-
-
-def _seg(pin_path: str, index: int) -> str:
-    parts = pin_path.split(".")
-    return parts[index] if len(parts) > index else ""
-
-
-def _type_suffix(cls: str | None) -> str:
-    return (cls or "?").rsplit(".", 1)[-1]
 
 
 class GraphScene(QGraphicsScene):
@@ -59,16 +51,16 @@ class GraphScene(QGraphicsScene):
         out: dict[str, set[str]] = {}
         for link in graph.links:
             for path in (link.source_path, link.target_path):
-                out.setdefault(_seg(path, 0), set()).add(path)
+                out.setdefault(pin_segment(path, 0), set()).add(path)
         return out
 
     def _add_link(self, link: Link) -> None:
-        s_node, t_node = _seg(link.source_path, 0), _seg(link.target_path, 0)
+        s_node, t_node = pin_segment(link.source_path, 0), pin_segment(link.target_path, 0)
         src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
         if src is None or dst is None:
             return
-        p1 = src.pin_anchor(_seg(link.source_path, 1), "Output")
-        p2 = dst.pin_anchor(_seg(link.target_path, 1), "Input")
+        p1 = src.pin_anchor(pin_segment(link.source_path, 1), "Output")
+        p2 = dst.pin_anchor(pin_segment(link.target_path, 1), "Input")
         item = LinkItem(p1, p2)
         self.addItem(item)
         self._links.append((item, s_node, t_node))
@@ -90,7 +82,7 @@ class GraphScene(QGraphicsScene):
 
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():
-            item.setVisible(_type_suffix(item.node.cls) not in hidden_types)
+            item.setVisible(type_suffix(item.node.cls) not in hidden_types)
         for link_item, s_node, t_node in self._links:
             src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
             visible = (src is not None and src.isVisible()

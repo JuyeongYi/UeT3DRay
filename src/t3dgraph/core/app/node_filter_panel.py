@@ -3,10 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QCheckBox
 from ..base.graph_model import GraphModel
-
-
-def _type_suffix(cls: str | None) -> str:
-    return (cls or "?").rsplit(".", 1)[-1]
+from ..t3d.paths import type_suffix
 
 
 class NodeFilterPanel(QWidget):
@@ -22,7 +19,7 @@ class NodeFilterPanel(QWidget):
         for box in self._boxes.values():
             box.setParent(None)
         self._boxes = {}
-        for type_name in sorted({_type_suffix(n.cls) for n in graph.nodes}):
+        for type_name in sorted({type_suffix(n.cls) for n in graph.nodes}):
             box = QCheckBox(type_name)
             box.setChecked(True)
             box.toggled.connect(
