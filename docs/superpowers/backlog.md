@@ -36,6 +36,14 @@
 | P2b-B2 | `_type_suffix` 헬퍼가 `scene.py`·`node_filter_panel.py`에 중복 — 백로그 P2a-B3(경로 헬퍼 중앙화)와 묶어 처리. |
 | P2b-B3 | `pin_status`가 docstring상 '전략'이나 구조는 단순 모듈 함수 — 전략 패턴 정합 또는 docstring 정정. |
 
+## improver Phase 2c 리뷰 findings (2026-05-19) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **P2c-B2** | `MainWindow.show_graph`가 View 안에서 `analyze_flow`/`compute_execution_order`를 직접 호출 — spec §4.1 MVC상 모델 오케스트레이션은 `AppController` 몫. View god-object화 예방. (improver는 Phase 2d 전 처리 권장했으나, 사용자 정책상 백로그 → 정리 batch.) |
+| P2c-B1 | 네비게이션·하이라이트 보일러플레이트가 inspector/analysis/execution_order 3개 패널에 중복 — 공용 베이스 추출. |
+| P2c-A1 | `ExecutionOrderPanel`이 `QFont("Consolas")` 하드코딩 — `QFont.Monospace` styleHint 권장. |
+
 ## 기능 아이디어 (spec §3.3 향후 확장)
 
 | ID | 내용 |
@@ -44,6 +52,7 @@
 | FEAT-2 | round-trip `.t3d` 익스포트 — 무손실 모델 → 텍스트 직렬화. |
 | FEAT-3 | 에셋 단위 교차 파일 resolver — `external_refs` 해소(spec §3.3 seam). |
 | FEAT-4 | CLI `--json` 구조화 출력 — 파이프라인 컴포넌트화. |
+| FEAT-5 | 실행 순서 패널 코드형 렌더링 고도화 — spec §7.2의 ForEach/Sequence 중첩·`name(){}` 드릴다운. (improver Phase 2c C1) |
 
 ---
 
