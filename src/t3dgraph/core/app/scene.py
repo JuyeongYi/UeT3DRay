@@ -53,8 +53,11 @@ class GraphScene(QGraphicsScene):
 
     def selected_node_name(self) -> str | None:
         for name, item in self._nodes.items():
-            if item.isSelected():
-                return name
+            try:
+                if item.isSelected():
+                    return name
+            except RuntimeError:
+                pass
         return None
 
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
