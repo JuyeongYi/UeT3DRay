@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
 
         self.view_state = ViewState()
         self.graph: GraphModel | None = None
+        self._flow = None
 
         self.scene = GraphScene()
         self.view = GraphView()
@@ -48,6 +49,7 @@ class MainWindow(QMainWindow):
 
         self._open_handler: Callable[[str], None] | None = None
         self._build_menu()
+        self._build_view_mode_toolbar()
         self._wire()
 
     def _dock(self, title: str, widget) -> QDockWidget:
@@ -59,6 +61,37 @@ class MainWindow(QMainWindow):
         file_menu = self.menuBar().addMenu("파일")
         file_menu.addAction("열기…").triggered.connect(self._on_open)
         file_menu.addAction("종료").triggered.connect(self.close)
+
+    def _build_view_mode_toolbar(self) -> None:
+        from PySide6.QtGui import QAction
+        toolbar = self.addToolBar("뷰 모드")
+        self.view_mode_actions: list[QAction] = []
+        for label, setter in (
+            ("연결된 핀만", self.view_state.set_connected_pins_only),
+            ("깊이 펼침", self.view_state.set_expand_subpins),
+            ("fan-in 강조", self.view_state.set_fan_in_highlight),
+        ):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.toggled.connect(
+                lambda checked, s=setter: self._on_view_mode(s, checked))
+            toolbar.addAction(action)
+            self.view_mode_actions.append(action)
+
+    def _on_view_mode(self, setter, checked: bool) -> None:
+        setter(checked)
+        self._rebuild_scene()
+
+    def _rebuild_scene(self) -> None:
+        if self.graph is not None:
+            self.scene.populate(self.graph, view_state=self.view_state,
+                                flow=self._flow)
+
+    def set_view_mode(self, label: str, checked: bool) -> None:
+        for action in self.view_mode_actions:
+            if action.text() == label:
+                action.setChecked(checked)
+                return
 
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
@@ -101,12 +134,13 @@ class MainWindow(QMainWindow):
 
     def show_graph(self, graph: GraphModel) -> None:
         self.graph = graph
-        self.scene.populate(graph)
+        self._flow = analyze_flow(graph)
+        self.scene.populate(graph, view_state=self.view_state, flow=self._flow)
         self.node_filter.set_graph(graph)
         self.inspector.show_node(None, graph)
-        flow = analyze_flow(graph)
-        self.analysis_panel.show_flow(flow)
-        self.exec_order_panel.show_order(compute_execution_order(graph, flow))
+        self.analysis_panel.show_flow(self._flow)
+        self.exec_order_panel.show_order(
+            compute_execution_order(graph, self._flow))
         self.view.fit()
         self.statusBar().showMessage(
             f"노드 {len(graph.nodes)} · 링크 {len(graph.links)}", 5000)
