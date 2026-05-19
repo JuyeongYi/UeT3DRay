@@ -10,10 +10,15 @@ def _seg(pin_path: str, index: int) -> str:
     return parts[index] if len(parts) > index else ""
 
 
+def _type_suffix(cls: str | None) -> str:
+    return (cls or "?").rsplit(".", 1)[-1]
+
+
 class GraphScene(QGraphicsScene):
     def __init__(self) -> None:
         super().__init__()
         self._nodes: dict[str, NodeItem] = {}
+        self._links: list[tuple[LinkItem, str, str]] = []
 
     def node_item(self, name: str) -> NodeItem | None:
         return self._nodes.get(name)
@@ -21,6 +26,7 @@ class GraphScene(QGraphicsScene):
     def populate(self, graph: GraphModel) -> None:
         self.clear()
         self._nodes = {}
+        self._links = []
         for node in graph.nodes:
             item = NodeItem(node)
             self.addItem(item)
@@ -29,10 +35,36 @@ class GraphScene(QGraphicsScene):
             self._add_link(link)
 
     def _add_link(self, link: Link) -> None:
-        src = self._nodes.get(_seg(link.source_path, 0))
-        dst = self._nodes.get(_seg(link.target_path, 0))
+        s_node, t_node = _seg(link.source_path, 0), _seg(link.target_path, 0)
+        src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
         if src is None or dst is None:
             return
         p1 = src.pin_anchor(_seg(link.source_path, 1), "Output")
         p2 = dst.pin_anchor(_seg(link.target_path, 1), "Input")
-        self.addItem(LinkItem(p1, p2))
+        item = LinkItem(p1, p2)
+        self.addItem(item)
+        self._links.append((item, s_node, t_node))
+
+    def select_node(self, name: str) -> None:
+        self.clearSelection()
+        item = self._nodes.get(name)
+        if item is not None:
+            item.setSelected(True)
+
+    def selected_node_name(self) -> str | None:
+        for name, item in self._nodes.items():
+            try:
+                if item.isSelected():
+                    return name
+            except RuntimeError:
+                pass
+        return None
+
+    def apply_hidden_types(self, hidden_types: set[str]) -> None:
+        for item in self._nodes.values():
+            item.setVisible(_type_suffix(item.node.cls) not in hidden_types)
+        for link_item, s_node, t_node in self._links:
+            src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
+            visible = (src is not None and src.isVisible()
+                       and dst is not None and dst.isVisible())
+            link_item.setVisible(visible)

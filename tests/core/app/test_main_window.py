@@ -38,3 +38,46 @@ def test_has_three_docks(qtbot):
     qtbot.addWidget(w)
     assert {w.dock_left.windowTitle(), w.dock_right.windowTitle(),
             w.dock_bottom.windowTitle()} == {"노드 타입 필터", "속성 인스펙터", "분석"}
+
+
+def _wired_graph():
+    from t3dgraph.core.base.graph_model import GraphModel, Node, Pin, Link
+    a = Node(name="A", cls="/X.RigVMUnitNode", position=(0.0, 0.0),
+             pins=[Pin("Out", "exec", "Output")])
+    b = Node(name="B", cls="/X.RigVMDispatchNode", position=(400.0, 0.0),
+             pins=[Pin("In", "exec", "Input")])
+    return GraphModel(nodes=[a, b], links=[Link("A.Out", "B.In")])
+
+
+def test_docks_hold_real_panels(qtbot):
+    from t3dgraph.core.app.inspector_panel import InspectorPanel
+    from t3dgraph.core.app.node_filter_panel import NodeFilterPanel
+    w = MainWindow()
+    qtbot.addWidget(w)
+    assert isinstance(w.dock_right.widget(), InspectorPanel)
+    assert isinstance(w.dock_left.widget(), NodeFilterPanel)
+
+
+def test_selecting_node_updates_inspector(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.scene.select_node("A")
+    assert w.inspector.pin_count() == 1
+
+
+def test_filter_hides_node_in_scene(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.node_filter.set_checked("RigVMUnitNode", False)
+    assert w.scene.node_item("A").isVisible() is False
+
+
+def test_navigate_request_selects_peer(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.scene.select_node("A")
+    w.inspector.activate_pin("Out")
+    assert w.scene.selected_node_name() == "B"

@@ -43,3 +43,34 @@ def test_scene_link_to_unknown_node_skipped(qtbot):
     scene = GraphScene()
     scene.populate(g)
     assert sum(isinstance(i, LinkItem) for i in scene.items()) == 0
+
+
+def test_selected_node_name(qtbot):
+    scene = GraphScene()
+    scene.populate(_graph())
+    scene.select_node("B")
+    assert scene.selected_node_name() == "B"
+
+
+def test_apply_hidden_types_hides_nodes(qtbot):
+    from t3dgraph.core.base.graph_model import GraphModel, Node
+    g = GraphModel(
+        nodes=[Node(name="A", cls="/X.RigVMUnitNode", position=(0.0, 0.0)),
+               Node(name="C", cls="/X.RigVMDispatchNode", position=(300.0, 0.0))],
+        links=[],
+    )
+    scene = GraphScene()
+    scene.populate(g)
+    scene.apply_hidden_types({"RigVMUnitNode"})
+    assert scene.node_item("A").isVisible() is False
+    assert scene.node_item("C").isVisible() is True
+
+
+def test_hidden_node_also_hides_its_links(qtbot):
+    from t3dgraph.core.app.items import LinkItem
+    scene = GraphScene()
+    scene.populate(_graph())
+    cls_suffix = _graph().nodes[0].cls.rsplit(".", 1)[-1] if _graph().nodes[0].cls else "?"
+    scene.apply_hidden_types({cls_suffix})
+    link_items = [i for i in scene.items() if isinstance(i, LinkItem)]
+    assert all(not li.isVisible() for li in link_items)
