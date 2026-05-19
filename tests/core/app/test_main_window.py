@@ -119,16 +119,16 @@ def test_canvas_selection_highlights_exec_panel(qtbot):
 def test_view_mode_toolbar_has_three_toggles(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
-    labels = {a.text() for a in w.view_mode_actions}
+    labels = {a.text() for a in w._view_mode_actions.values()}
     assert labels == {"연결된 핀만", "깊이 펼침", "fan-in 강조"}
-    assert all(a.isCheckable() for a in w.view_mode_actions)
+    assert all(a.isCheckable() for a in w._view_mode_actions.values())
 
 
 def test_toggle_connected_only_rebuilds_scene(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
-    w.set_view_mode("연결된 핀만", True)
+    w.set_view_mode("connected_only", True)
     assert w.view_state.connected_pins_only is True
     assert w.scene.node_item("A") is not None
 
@@ -137,7 +137,7 @@ def test_toggle_expand_subpins_updates_state(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
-    w.set_view_mode("깊이 펼침", True)
+    w.set_view_mode("expand_subpins", True)
     assert w.view_state.expand_subpins is True
 
 
@@ -146,6 +146,14 @@ def test_fan_in_highlight_toggle_keeps_same_node_items(qtbot):
     qtbot.addWidget(w)
     w.show_graph(_wired_graph())
     before = w.scene.node_item("A")
-    w.set_view_mode("fan-in 강조", True)
+    w.set_view_mode("fan_in_highlight", True)
     after = w.scene.node_item("A")
     assert before is after
+
+
+def test_set_view_mode_uses_stable_id(qtbot):
+    w = MainWindow()
+    qtbot.addWidget(w)
+    w.show_graph(_wired_graph())
+    w.set_view_mode("connected_only", True)
+    assert w.view_state.connected_pins_only is True
