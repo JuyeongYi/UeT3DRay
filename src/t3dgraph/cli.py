@@ -9,6 +9,14 @@ from .core.analysis.flow import analyze_flow
 from .core.analysis.execution_order import compute_execution_order
 
 
+def _read_text(path: Path) -> str:
+    """BOM·UTF-16 익스포트도 처리하는 견고한 텍스트 읽기."""
+    data = path.read_bytes()
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16")
+    return data.decode("utf-8-sig")
+
+
 def run(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="t3dgraph", description="UE T3D 그래프 파서·분석")
     parser.add_argument("file", help=".t3d(.txt) 파일 경로")
@@ -19,7 +27,11 @@ def run(argv: list[str]) -> int:
         print(f"파일을 찾을 수 없습니다: {path}", file=sys.stderr)
         return 2
 
-    doc = parse_document(path.read_text(encoding="utf-8"))
+    try:
+        doc = parse_document(_read_text(path))
+    except UnicodeDecodeError as e:
+        print(f"파일 인코딩을 해석할 수 없습니다: {path} ({e})", file=sys.stderr)
+        return 2
     registry = default_registry()
     try:
         plugin = registry.detect(doc)
