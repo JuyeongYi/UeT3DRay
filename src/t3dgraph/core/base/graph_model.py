@@ -23,6 +23,7 @@ class Node:
     position: tuple[float, float] | None = None
     raw: dict[str, Any] = field(default_factory=dict)
     is_generic: bool = False
+    kind: str = "node"          # node | loop | sequence | function
 
 
 @dataclass

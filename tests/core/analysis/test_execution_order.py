@@ -51,3 +51,12 @@ def test_compute_with_precomputed_flow_matches():
     g = GraphModel(nodes=[a, b], links=[Link("A.O", "B.I")])
     flow = analyze_flow(g)
     assert compute_execution_order(g, flow=flow) == compute_execution_order(g)
+
+
+def test_execution_step_carries_node_kind():
+    a = Node(name="A", cls="X", kind="loop", pins=[_ep("O", "Output")])
+    b = Node(name="B", cls="X", kind="node", pins=[_ep("I", "Input")])
+    g = GraphModel(nodes=[a, b], links=[Link("A.O", "B.I")])
+    order = compute_execution_order(g)
+    by_node = {s.node: s.kind for s in order}
+    assert by_node == {"A": "loop", "B": "node"}

@@ -23,3 +23,7 @@ def test_external_refs_recorded():
 
 def test_pin_is_execution_defaults_false():
     assert Pin(name="X", cpp_type="double", direction="Input").is_execution is False
+
+
+def test_node_kind_defaults_to_node():
+    assert Node(name="N", cls="X").kind == "node"

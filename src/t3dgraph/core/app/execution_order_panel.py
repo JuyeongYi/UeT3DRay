@@ -10,6 +10,17 @@ _NODE_ROLE = Qt.UserRole + 1
 _INDENT = "    "
 
 
+def _format_step(step) -> str:
+    indent = _INDENT * step.depth
+    if step.kind == "loop":
+        return f"{indent}ForEach {step.node}:"
+    if step.kind == "sequence":
+        return f"{indent}Sequence {step.node}:"
+    if step.kind == "function":
+        return f"{indent}{step.node}() {{ … }}"
+    return f"{indent}{step.node}"
+
+
 class ExecutionOrderPanel(NavigablePanel):
 
     def __init__(self) -> None:
@@ -25,7 +36,7 @@ class ExecutionOrderPanel(NavigablePanel):
         self._list.clear()
         self._rows = {}
         for step in steps:
-            item = QListWidgetItem(_INDENT * step.depth + step.node)
+            item = QListWidgetItem(_format_step(step))
             item.setData(_NODE_ROLE, step.node)
             self._list.addItem(item)
             self._rows[step.node] = item

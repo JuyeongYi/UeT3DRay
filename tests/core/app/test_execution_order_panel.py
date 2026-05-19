@@ -57,3 +57,27 @@ def test_uses_fixed_pitch_font(qtbot):
         or "courier" in f.family().lower()
     )
     assert is_fixed
+
+
+def test_kind_specific_rendering(qtbot):
+    panel = ExecutionOrderPanel()
+    qtbot.addWidget(panel)
+    panel.show_order([
+        ExecutionStep("Loop", 0, "loop"),
+        ExecutionStep("Body", 1, "node"),
+        ExecutionStep("Seq", 0, "sequence"),
+        ExecutionStep("Fn", 0, "function"),
+    ])
+    assert panel.row_text(0) == "ForEach Loop:"
+    assert panel.row_text(1) == "    Body"
+    assert panel.row_text(2) == "Sequence Seq:"
+    assert panel.row_text(3) == "Fn() { … }"
+
+
+def test_navigation_still_uses_node_name(qtbot):
+    panel = ExecutionOrderPanel()
+    qtbot.addWidget(panel)
+    panel.show_order([ExecutionStep("Loop", 0, "loop")])
+    with qtbot.waitSignal(panel.navigate_requested, timeout=1000) as sig:
+        panel.activate_row(0)
+    assert sig.args == ["Loop"]

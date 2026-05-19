@@ -93,3 +93,32 @@ def test_interpreter_non_execution_pin_flag_false():
     )
     g = RigVMGraphInterpreter().interpret(parse_document(src))
     assert g.node_by_name("A").pins[0].is_execution is False
+
+
+def test_interpreter_classifies_loop_node():
+    src = (
+        'Begin Object Class=/Script/RigVMDeveloper.RigVMDispatchNode Name="For_Each"\n'
+        'End Object\n'
+        'Begin Object Name="For_Each"\n'
+        '   TemplateNotation="DISPATCH_RigVMDispatch_ArrayIterator(in Array,out Element)"\n'
+        'End Object\n'
+    )
+    g = RigVMGraphInterpreter().interpret(parse_document(src))
+    assert g.node_by_name("For_Each").kind == "loop"
+
+
+def test_interpreter_classifies_function_node():
+    src = (
+        'Begin Object Class=/Script/RigVMDeveloper.RigVMCollapseNode Name="Physics"\n'
+        'End Object\n'
+        'Begin Object Name="Physics"\n'
+        '   ContainedGraph="/Script/RigVMDeveloper.RigVMGraph\'CollapseNode_ContainedGraph\'"\n'
+        'End Object\n'
+    )
+    g = RigVMGraphInterpreter().interpret(parse_document(src))
+    assert g.node_by_name("Physics").kind == "function"
+
+
+def test_interpreter_plain_unit_node_kind_node():
+    g = RigVMGraphInterpreter().interpret(parse_document(LINK_SRC))
+    assert g.node_by_name("A").kind == "node"
