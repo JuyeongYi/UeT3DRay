@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from ..base.graph_model import GraphModel
 from ..analysis.data_flow import DataFlowResult
+from ..analysis.bundle import AnalysisBundle
 
 
 class AbstractGraphView(ABC):
@@ -12,13 +13,18 @@ class AbstractGraphView(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def show_analyses(self, bundle: AnalysisBundle) -> None:
+        """분석 3종(flow·execution_order·data_flow)을 한 번에 표시한다."""
+        raise NotImplementedError
+
+    @abstractmethod
     def show_analysis(self, flow, order) -> None:
-        """분석 결과(FlowResult, 실행 순서)를 분석 도크에 표시한다."""
+        """(deprecated) 분석 결과(FlowResult, 실행 순서)를 분석 도크에 표시한다."""
         raise NotImplementedError
 
     @abstractmethod
     def show_data_flow(self, result: DataFlowResult) -> None:
-        """데이터 흐름 분석 결과를 계산 흐름 도크에 표시한다."""
+        """(deprecated) 데이터 흐름 분석 결과를 계산 흐름 도크에 표시한다."""
         raise NotImplementedError
 
 

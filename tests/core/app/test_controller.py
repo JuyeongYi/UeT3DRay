@@ -15,6 +15,8 @@ class _FakeView(AbstractGraphView):
         self.analysis = (flow, order)
     def show_data_flow(self, result):
         self.data_flow = result
+    def show_analyses(self, bundle):
+        self.bundle = bundle
     def show_error(self, message):
         self.error = message
 
