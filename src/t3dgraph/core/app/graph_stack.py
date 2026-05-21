@@ -66,3 +66,16 @@ class GraphStack:
     def select_root(self, index: int) -> None:
         if 0 <= index < len(self._roots):
             self._cur_root = index
+
+    def close_root(self, index: int) -> None:
+        if not (0 <= index < len(self._roots)):
+            return
+        del self._roots[index]
+        del self._paths[index]
+        if not self._roots:
+            self._cur_root = -1
+            return
+        if self._cur_root >= len(self._roots):
+            self._cur_root = len(self._roots) - 1
+        elif index < self._cur_root:
+            self._cur_root -= 1
