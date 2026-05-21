@@ -12,6 +12,7 @@ from .inspector_panel import InspectorPanel
 from .node_filter_panel import NodeFilterPanel
 from .analysis_panel import AnalysisPanel
 from .execution_order_panel import ExecutionOrderPanel
+from .data_flow_panel import DataFlowPanel
 
 
 class MainWindow(QMainWindow):
@@ -33,10 +34,12 @@ class MainWindow(QMainWindow):
         self.inspector = InspectorPanel()
         self.analysis_panel = AnalysisPanel()
         self.exec_order_panel = ExecutionOrderPanel()
+        self.data_flow_panel = DataFlowPanel()
 
         bottom_tabs = QTabWidget()
         bottom_tabs.addTab(self.analysis_panel, "수렴점")
         bottom_tabs.addTab(self.exec_order_panel, "실행 순서")
+        bottom_tabs.addTab(self.data_flow_panel, "계산 흐름")
 
         self.dock_left = self._dock("노드 타입 필터", self.node_filter)
         self.dock_right = self._dock("속성 인스펙터", self.inspector)
@@ -134,6 +137,7 @@ class MainWindow(QMainWindow):
         self.inspector.navigate_requested.connect(self._navigate_to)
         self.analysis_panel.navigate_requested.connect(self._navigate_to)
         self.exec_order_panel.navigate_requested.connect(self._navigate_to)
+        self.data_flow_panel.navigate_requested.connect(self._navigate_to)
 
     def _on_search_changed(self) -> None:
         if self.graph is None:
@@ -166,6 +170,7 @@ class MainWindow(QMainWindow):
             self.inspector.show_node(node, self.graph)
         self.analysis_panel.highlight_node(name)
         self.exec_order_panel.highlight_node(name)
+        self.data_flow_panel.highlight_node(name)
 
     def _on_type_toggled(self, type_name: str, hidden: bool) -> None:
         self.view_state.set_type_hidden(type_name, hidden)
@@ -190,6 +195,9 @@ class MainWindow(QMainWindow):
         self._flow = flow
         self.analysis_panel.show_flow(flow)
         self.exec_order_panel.show_order(order)
+
+    def show_data_flow(self, result) -> None:
+        self.data_flow_panel.show_result(result)
 
     def show_error(self, message: str) -> None:
         from PySide6.QtWidgets import QMessageBox

@@ -15,6 +15,11 @@ class AbstractGraphView(ABC):
         """분석 결과(FlowResult, 실행 순서)를 분석 도크에 표시한다."""
         raise NotImplementedError
 
+    @abstractmethod
+    def show_data_flow(self, result) -> None:
+        """데이터 흐름 분석 결과를 계산 흐름 도크에 표시한다."""
+        raise NotImplementedError
+
 
 class AbstractGraphController(ABC):
     @abstractmethod

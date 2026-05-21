@@ -8,10 +8,13 @@ class _FakeView(AbstractGraphView):
         self.shown: GraphModel | None = None
         self.error: str | None = None
         self.analysis = None
+        self.data_flow = None
     def show_graph(self, graph):
         self.shown = graph
     def show_analysis(self, flow, order):
         self.analysis = (flow, order)
+    def show_data_flow(self, result):
+        self.data_flow = result
     def show_error(self, message):
         self.error = message
 
