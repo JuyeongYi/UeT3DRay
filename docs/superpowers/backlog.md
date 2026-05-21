@@ -69,6 +69,22 @@
 | FEAT-18 | CLI `compute-trace <file> <sink>` — bundle에 이미 compute_trace 있음. ζ pattern 활용. |
 | FEAT-19 | Trace diff (두 파일 같은 sink) — depth별 노드 set diff. dataflow-diff와 짝. |
 
+### improver Slice θ-2 리뷰 findings (2026-05-22, master d458226) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **θ2-A1** | `diff_data_flow` 핀 단위 정보 손실 — `_depth_map(compute_trace)`이 노드 단위. D-A1/C-A1/θ1-A1과 같은 "상위 레이어 정보 묵살" 패턴 **4회 재발 — 정리 batch 우선 축**. ancestor 출처 핀이 사라져 S.InMul vs S.InAdd 경로 구분 불가. |
+| θ2-A2 | graph_type 일치 검증 부재 — RigVM vs 미래 plugin 결과 무의미 비교 가능. ζ-A1 해결 시 비용 0. |
+| θ2-A3 | diff text 출력 헤드라인 부재 — `changed: X · unchanged: Y · added: Z · removed: W` 한 줄 추가. |
+| θ2-B1 | inline import 재발 (`_cmd_diff`의 `from ... data_flow_diff import`) — η-B1 패턴 같은 파일 두 번째. 모듈 상단 import 규약 명문화. |
+| θ2-B2 | subcommand 공통 옵션 3번째 중복(`--lenient`/`--json` summary/dataflow/diff) — ζ-B2 backlog가 그대로 있는데 비용을 또 지불. `parents=[common]`. |
+| θ2-B3 | subcommand 디스패치 3곳 동시 수정 — `COMMANDS: dict[str, tuple[register, handler]]` 테이블로 통합. ζ-B2·B3와 같은 묶음. |
+| FEAT-20 | diff JSON 최상단 `summary: {sinks_added, sinks_removed, sinks_changed, sinks_unchanged}` — CI `jq` 폴리시 가능. |
+| FEAT-21 | diff exit code semantics — `0=변화 없음, 1=차이, 2=argv, 4=로드 실패`. ζ-A3와 묶음. |
+| FEAT-22 | `t3dgraph diff --markdown` — PR 코멘트용 마크다운 표 출력. |
+
+**메모 (improver 권고):** θ2-B1·B2·B3는 ζ-B 시리즈와 정확히 같은 라인 — 정리 batch에서 한 번에 처리 (parent parser + 디스패치 테이블 + 상단 import 규약). 패턴 일소형 슬라이스 후보.
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
