@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._build_view_mode_toolbar()
         self._wire()
+        self._build_shortcuts()
 
     def _dock(self, title: str, widget) -> QDockWidget:
         dock = QDockWidget(title)
@@ -142,6 +143,24 @@ class MainWindow(QMainWindow):
         action = self._view_mode_actions.get(mode_id)
         if action is not None:
             action.setChecked(checked)
+
+    def _build_shortcuts(self) -> None:
+        from PySide6.QtGui import QShortcut, QKeySequence
+        for seq in (QKeySequence('Alt+Left'), QKeySequence(Qt.Key_Backspace)):
+            sc = QShortcut(seq, self, activated=self._on_shortcut_back)
+            sc.setContext(Qt.ApplicationShortcut)
+        sc2 = QShortcut(QKeySequence('Alt+Up'), self, activated=self._on_shortcut_up)
+        sc2.setContext(Qt.ApplicationShortcut)
+
+    def _on_shortcut_back(self) -> None:
+        self.graph_stack.pop()
+        self._render_current()
+
+    def _on_shortcut_up(self) -> None:
+        segs = self.graph_stack.segments()
+        if len(segs) >= 2:
+            self.graph_stack.jump_to(len(segs) - 2)
+            self._render_current()
 
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
