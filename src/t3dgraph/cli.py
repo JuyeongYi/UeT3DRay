@@ -30,6 +30,10 @@ def _make_parser() -> argparse.ArgumentParser:
     p_diff.add_argument('--lenient', action='store_true')
     p_diff.add_argument('--json', action='store_true')
 
+    p_ser = subs.add_parser('serialize', help='round-trip 직렬화')
+    p_ser.add_argument('file')
+    p_ser.add_argument('--lenient', action='store_true')
+
     return parser
 
 
@@ -145,9 +149,26 @@ def _cmd_diff(args) -> int:
     return 0
 
 
+def _cmd_serialize(args) -> int:
+    from .core.t3d.serializer import serialize_document
+    from .core.t3d.document import parse_document
+    from .core.t3d.encoding import read_t3d_text
+    path = Path(args.file)
+    if not path.is_file():
+        print(f'파일을 찾을 수 없습니다: {path}', file=sys.stderr)
+        return 2
+    try:
+        doc = parse_document(read_t3d_text(path))
+    except (UnicodeDecodeError, T3DParseError) as e:
+        print(f'파싱 실패: {e}', file=sys.stderr)
+        return 4 if not args.lenient else 0
+    print(serialize_document(doc), end='')
+    return 0
+
+
 def run(argv: list[str]) -> int:
     # 하위 호환: 첫 인자가 서브커맨드가 아니면 summary로 위임
-    if argv and argv[0] not in ('summary', 'dataflow', 'diff', '-h', '--help') and not argv[0].startswith('-'):
+    if argv and argv[0] not in ('summary', 'dataflow', 'diff', 'serialize', '-h', '--help') and not argv[0].startswith('-'):
         argv = ['summary'] + argv
     parser = _make_parser()
     args = parser.parse_args(argv)
@@ -157,6 +178,8 @@ def run(argv: list[str]) -> int:
         return _cmd_dataflow(args)
     if args.subcommand == 'diff':
         return _cmd_diff(args)
+    if args.subcommand == 'serialize':
+        return _cmd_serialize(args)
     parser.print_help()
     return 2
 
