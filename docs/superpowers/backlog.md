@@ -99,6 +99,20 @@
 | FEAT-24 | `serialize --output PATH` — Windows 리다이렉트 인코딩 회피. |
 | FEAT-25 | `t3dgraph format` (또는 `serialize --canonical`) — 속성 정렬·들여쓰기 정규화. PR diff 노이즈 감소. |
 
+### improver Slice κ 리뷰 findings (2026-05-22, master e067705) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| κ-A1 | `AssetResolver.register` 이름 충돌 silent first-wins — `setdefault` 대신 충돌 누적(warnings 또는 다중 보존). |
+| **κ-A2** | `_resolver`가 등록만 되고 활용 안 됨 — inspector/data_flow_panel/controller가 external_refs 해결 결과 미사용. **backend 완성 + frontend 미연결 절반-기능 상태**. |
+| κ-A3 | 같은 파일 이중 파싱 — `load_folder`가 파싱한 doc을 `_open_handler` 재호출이 또 파싱. Orion 규모 비용 2배. 핸들러 인터페이스 확장. |
+| κ-B1 | `_on_open_folder` triple inline import — η-B1·θ2-B1·ι-B1에 이어 **4번째 패턴, cli.py → main_window.py로 번짐**. 정리 슬라이스 범위 확장 신호. |
+| κ-B2 | `load_folder`의 `except Exception` — ι-B1과 같은 결. `(UnicodeDecodeError, T3DParseError)`로 좁힘. |
+| κ-B3 | dual-glob 중복 (main_window.py + resolver.py) — `load_folder` 반환 list 또는 `registered_paths()` 도입. |
+| FEAT-26 | 충돌 검출 리포트 — `resolver.conflicts()` + status bar/도크 표시. κ-A1 가시화. |
+| FEAT-27 | External-ref 네비 — inspector 클릭 시 해당 파일 새 탭으로 + 노드 이동. FEAT-3 + FEAT-10 + F5 합성. |
+| FEAT-28 | CLI `t3dgraph resolve <folder>` — 이름→파일/충돌/미해결 JSON dump. RigVM CI 감사. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
