@@ -44,3 +44,22 @@ def test_node_meta_fields_accept_value():
     assert n.display_name == "Begin Execution"
     assert n.role_summary == "(no args)"
     assert n.role_category == "Execution"
+
+
+def test_node_subgraph_default_none():
+    n = Node(name="X", cls=None)
+    assert n.subgraph is None
+
+
+def test_node_subgraph_can_attach_graph_model():
+    inner = GraphModel(label="inner")
+    n = Node(name="Outer", cls=None, subgraph=inner)
+    assert n.subgraph is inner
+    assert n.subgraph.label == "inner"
+
+
+def test_graph_model_meta_defaults():
+    g = GraphModel()
+    assert g.label is None
+    assert g.parent_node is None
+    assert g.boundary_refs == []
