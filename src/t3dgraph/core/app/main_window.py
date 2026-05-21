@@ -252,7 +252,7 @@ class MainWindow(QMainWindow):
         self.analysis_panel.show_flow(flow)
         self.exec_order_panel.show_order(order)
 
-    def show_data_flow(self, result) -> None:
+    def show_data_flow(self, result: "DataFlowResult") -> None:
         self.data_flow_panel.show_result(result)
 
     def show_error(self, message: str) -> None:
