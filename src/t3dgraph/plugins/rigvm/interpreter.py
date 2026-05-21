@@ -66,13 +66,20 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         *,
         label: str | None,
         parent_node: str | None,
+        depth: int = 0,
+        max_depth: int = 64,
     ) -> GraphModel:
         g = GraphModel(label=label, parent_node=parent_node)
+        if depth >= max_depth:
+            g.warnings.append(
+                f"interpret 깊이 {depth} >= {max_depth} — 추가 추출 중단 (label={label or '?'})"
+            )
+            return g
         for obj in objects:
             if t.is_link_class(obj.cls):
                 self._add_link(obj, g)
             elif t.is_node_class(obj.cls):
-                self._add_node(obj, g)
+                self._add_node(obj, g, depth=depth, max_depth=max_depth)
             elif obj.cls is None:
                 continue
             elif t.is_graph_class(obj.cls):
@@ -100,7 +107,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         if src and tgt:
             g.links.append(Link(source_path=src, target_path=tgt))
 
-    def _add_node(self, obj: T3DObject, g: GraphModel) -> None:
+    def _add_node(self, obj: T3DObject, g: GraphModel, *, depth: int = 0, max_depth: int = 64) -> None:
         summary, category = role_for(obj)
         node = Node(
             name=obj.name or "",
@@ -120,7 +127,11 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 child.children,
                 label=f"{node.name}/{child.name or 'graph'}",
                 parent_node=node.name,
+                depth=depth + 1,
+                max_depth=max_depth,
             )
+            # 깊이 cap 경고를 상위 그래프까지 전파
+            g.warnings.extend(w for w in sub.warnings if "깊이" in w)
             if i == 0:
                 node.subgraph = sub
             else:
