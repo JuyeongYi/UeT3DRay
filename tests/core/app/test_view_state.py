@@ -37,23 +37,19 @@ def test_is_type_hidden():
 def test_view_mode_defaults_false():
     vs = ViewState()
     assert vs.connected_pins_only is False
-    assert vs.expand_subpins is False
     assert vs.fan_in_highlight is False
 
 
 def test_view_mode_setters():
     vs = ViewState()
     vs.set_connected_pins_only(True)
-    vs.set_expand_subpins(True)
     vs.set_fan_in_highlight(True)
-    assert (vs.connected_pins_only, vs.expand_subpins, vs.fan_in_highlight) == (True, True, True)
+    assert (vs.connected_pins_only, vs.fan_in_highlight) == (True, True)
 
 
-def test_set_expand_subpins_and_fan_in():
+def test_set_fan_in_highlight():
     vs = ViewState()
-    vs.set_expand_subpins(True)
     vs.set_fan_in_highlight(True)
-    assert vs.expand_subpins is True
     assert vs.fan_in_highlight is True
 
 
