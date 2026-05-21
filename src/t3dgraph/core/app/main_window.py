@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QMainWindow, QDockWidget, QFileDialog, QTabWidget, QVBoxLayout, QWidget,
+    QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
 )
 from ..base.graph_model import GraphModel
 from .contracts import AbstractGraphView
@@ -36,10 +36,16 @@ class MainWindow(QMainWindow):
         # F5: 그래프 스택 + 브레드크럼 바를 뷰 상단에 배치.
         self.graph_stack = GraphStack()
         self.breadcrumb = BreadcrumbBar()
+        self._tab_bar = QTabBar()
+        self._tab_bar.setTabsClosable(True)
+        self._tab_bar.setExpanding(False)
+        self._tab_bar.currentChanged.connect(self._on_tab_changed)
+        self._tab_bar.tabCloseRequested.connect(self._on_tab_close)
         central = QWidget()
         vlay = QVBoxLayout(central)
         vlay.setContentsMargins(0, 0, 0, 0)
         vlay.setSpacing(0)
+        vlay.addWidget(self._tab_bar)
         vlay.addWidget(self.breadcrumb)
         vlay.addWidget(self.view)
         self.setCentralWidget(central)
@@ -222,7 +228,28 @@ class MainWindow(QMainWindow):
         if label and not graph.label:
             graph.label = label
         self.graph_stack.open_root(graph)
+        self._tab_bar.blockSignals(True)
+        self._tab_bar.addTab(graph.label or '(이름 없음)')
+        self._tab_bar.setCurrentIndex(self._tab_bar.count() - 1)
+        self._tab_bar.blockSignals(False)
         self._render_current()
+
+    def _on_tab_changed(self, index: int) -> None:
+        if index < 0 or index >= len(self.graph_stack.roots()):
+            return
+        self.graph_stack.select_root(index)
+        self._render_current()
+
+    def _on_tab_close(self, index: int) -> None:
+        self._tab_bar.blockSignals(True)
+        self._tab_bar.removeTab(index)
+        self._tab_bar.blockSignals(False)
+        self.graph_stack.close_root(index)
+        if self.graph_stack.current() is None:
+            self.scene.clear()
+            self.breadcrumb.set_segments([])
+        else:
+            self._render_current()
 
     def _on_enter_subgraph(self, node_name: str) -> None:
         current = self.graph_stack.current()
