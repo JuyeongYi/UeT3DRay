@@ -64,18 +64,48 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QAction
         toolbar = self.addToolBar("뷰 모드")
         self._view_mode_actions: dict[str, QAction] = {}
-        specs = (
+        toggles = (
             ("connected_only", "연결된 핀만", self.view_state.set_connected_pins_only, False),
-            ("expand_subpins", "깊이 펼침", self.view_state.set_expand_subpins, False),
             ("fan_in_highlight", "fan-in 강조", self.view_state.set_fan_in_highlight, True),
         )
-        for mode_id, label, setter, in_place in specs:
+        for mode_id, label, setter, in_place in toggles:
             action = QAction(label, self)
             action.setCheckable(True)
             action.toggled.connect(
                 lambda checked, s=setter, ip=in_place: self._on_view_mode(s, checked, ip))
             toolbar.addAction(action)
             self._view_mode_actions[mode_id] = action
+
+        expand_all = QAction("전체 펼침", self)
+        expand_all.triggered.connect(self._on_expand_all_pins)
+        toolbar.addAction(expand_all)
+        self._view_mode_actions["expand_all"] = expand_all
+
+        collapse_all = QAction("전체 접기", self)
+        collapse_all.triggered.connect(self._on_collapse_all_pins)
+        toolbar.addAction(collapse_all)
+        self._view_mode_actions["collapse_all"] = collapse_all
+
+    def _on_expand_all_pins(self) -> None:
+        if self.graph is None:
+            return
+        paths: list[str] = []
+
+        def walk(node_name, pin, prefix):
+            path = f"{prefix}.{pin.name}"
+            paths.append(path)
+            for sp in pin.subpins:
+                walk(node_name, sp, path)
+
+        for n in self.graph.nodes:
+            for p in n.pins:
+                walk(n.name, p, n.name)
+        self.view_state.expand_all_pins(paths)
+        self._rebuild_scene()
+
+    def _on_collapse_all_pins(self) -> None:
+        self.view_state.collapse_all_pins()
+        self._rebuild_scene()
 
     def _on_view_mode(self, setter, checked: bool, in_place: bool = False) -> None:
         setter(checked)
@@ -91,17 +121,22 @@ class MainWindow(QMainWindow):
                                 flow=self._flow)
 
     def set_view_mode(self, mode_id: str, checked: bool) -> None:
-        """안정 식별자로 뷰 모드 토글 — connected_only / expand_subpins / fan_in_highlight."""
+        """안정 식별자로 뷰 모드 토글 — connected_only / fan_in_highlight."""
         action = self._view_mode_actions.get(mode_id)
         if action is not None:
             action.setChecked(checked)
 
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
+        self.scene.pin_toggle_requested.connect(self._on_pin_toggle)
         self.node_filter.type_toggled.connect(self._on_type_toggled)
         self.inspector.navigate_requested.connect(self._navigate_to)
         self.analysis_panel.navigate_requested.connect(self._navigate_to)
         self.exec_order_panel.navigate_requested.connect(self._navigate_to)
+
+    def _on_pin_toggle(self, full_path: str) -> None:
+        self.view_state.toggle_pin_expanded(full_path)
+        self._rebuild_scene()
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
