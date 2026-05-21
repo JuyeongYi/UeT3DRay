@@ -1,5 +1,6 @@
 """GraphModel → QGraphicsScene 빌드."""
 from __future__ import annotations
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
@@ -9,6 +10,8 @@ from .view_state import ViewState
 
 
 class GraphScene(QGraphicsScene):
+    pin_toggle_requested = Signal(str)  # full_path
+
     def __init__(self) -> None:
         super().__init__()
         self._nodes: dict[str, NodeItem] = {}
@@ -35,12 +38,15 @@ class GraphScene(QGraphicsScene):
                 node,
                 connected_paths=frozenset(connected.get(node.name, set())),
                 connected_only=vs.connected_pins_only,
-                show_subpins=vs.expand_subpins,
+                expanded_paths=frozenset(
+                    p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
+                ),
                 highlighted=vs.fan_in_highlight and node.name in convergence,
             )
             if node.position is None:
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
                 fallback_i += 1
+            item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
@@ -55,7 +61,11 @@ class GraphScene(QGraphicsScene):
         out: dict[str, set[str]] = {}
         for link in graph.links:
             for path in (link.source_path, link.target_path):
-                out.setdefault(pin_segment(path, 0), set()).add(path)
+                node = pin_segment(path, 0)
+                bucket = out.setdefault(node, set())
+                parts = path.split(".")
+                for i in range(2, len(parts) + 1):
+                    bucket.add(".".join(parts[:i]))
         return out
 
     def _add_link(self, link: Link) -> None:
@@ -89,6 +99,11 @@ class GraphScene(QGraphicsScene):
     def apply_fan_in_highlight(self, convergence: set[str], on: bool) -> None:
         for name, item in self._nodes.items():
             item.set_highlighted(on and name in convergence)
+
+    def apply_search_highlight(self, hits: set[str]) -> None:
+        """검색 매치 노드는 불투명, 미매치는 흐리게. hide 금지(PRESERVE-ALL)."""
+        for name, item in self._nodes.items():
+            item.setOpacity(1.0 if name in hits else 0.35)
 
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():

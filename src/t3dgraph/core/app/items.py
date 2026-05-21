@@ -1,6 +1,7 @@
 """QGraphicsItem 기반 노드/핀/링크 렌더링 요소."""
 from __future__ import annotations
-from PySide6.QtCore import QRectF, QPointF, Qt
+from dataclasses import dataclass
+from PySide6.QtCore import QRectF, QPointF, Qt, QObject, Signal
 from PySide6.QtGui import QPen, QBrush, QColor
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
@@ -8,10 +9,54 @@ from PySide6.QtWidgets import (
 )
 from ..base.graph_model import Node, Pin
 
+
+class _NodeItemBus(QObject):
+    pin_toggle_requested = Signal(str)  # full_path
+
 NODE_WIDTH = 200.0
 ROW_HEIGHT = 20.0
 HEADER_HEIGHT = 26.0
 PIN_RADIUS = 4.0
+
+
+@dataclass(frozen=True)
+class PinRow:
+    pin: Pin
+    path: str
+    depth: int
+    has_dot: bool
+
+
+def collect_pin_rows(
+    node: Node,
+    *,
+    connected_subtree: frozenset[str],
+    connected_only: bool,
+    expanded: frozenset[str],
+) -> list[PinRow]:
+    rows: list[PinRow] = []
+
+    def walk(pin: Pin, path: str, depth: int) -> bool:
+        include_self = (not connected_only) or (path in connected_subtree)
+        my_idx: int | None = None
+        if include_self:
+            my_idx = len(rows)
+            rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True))
+        children_added = False
+        if path in expanded:
+            for sp in pin.subpins:
+                child_path = f"{path}.{sp.name}"
+                if walk(sp, child_path, depth + 1):
+                    children_added = True
+        if my_idx is not None and children_added:
+            cur = rows[my_idx]
+            rows[my_idx] = PinRow(pin=cur.pin, path=cur.path,
+                                  depth=cur.depth, has_dot=False)
+        return include_self or children_added
+
+    for pin in node.pins:
+        walk(pin, f"{node.name}.{pin.name}", 0)
+    return rows
 
 
 class NodeItem(QGraphicsRectItem):
@@ -21,11 +66,13 @@ class NodeItem(QGraphicsRectItem):
         self, node: Node, *,
         connected_paths: frozenset[str] = frozenset(),
         connected_only: bool = False,
-        show_subpins: bool = False,
+        expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
     ):
         self.node = node
-        rows = self._collect_rows(node, connected_paths, connected_only, show_subpins)
+        rows = collect_pin_rows(node, connected_subtree=connected_paths,
+                                connected_only=connected_only,
+                                expanded=expanded_paths)
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, NODE_WIDTH, height))
         x, y = node.position if node.position else (0.0, 0.0)
@@ -38,41 +85,42 @@ class NodeItem(QGraphicsRectItem):
                               else QColor(90, 60, 60)))
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
 
-        title = QGraphicsSimpleTextItem(node.name or "?", self)
+        title = QGraphicsSimpleTextItem(node.display_name or node.name or "?", self)
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
 
         self._rows: dict[str, float] = {}
-        for i, (pin, path, depth) in enumerate(rows):
+        self._row_paths: list[str] = [r.path for r in rows]
+        for i, row in enumerate(rows):
             cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
-            self._rows[path] = cy
-            is_input = (pin.direction or "").lower() != "output"
+            self._rows[row.path] = cy
+            is_input = (row.pin.direction or "").lower() != "output"
             mx = 0.0 if is_input else NODE_WIDTH
-            dot = QGraphicsEllipseItem(
-                mx - PIN_RADIUS, cy - PIN_RADIUS, 2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
-            dot.setBrush(QBrush(QColor(200, 200, 120)))
-            dot.setPen(QPen(Qt.NoPen))
-            label = QGraphicsSimpleTextItem(pin.name, self)
+            if row.has_dot:
+                dot = QGraphicsEllipseItem(
+                    mx - PIN_RADIUS, cy - PIN_RADIUS, 2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
+                dot.setBrush(QBrush(QColor(200, 200, 120)))
+                dot.setPen(QPen(Qt.NoPen))
+            label = QGraphicsSimpleTextItem(row.pin.name, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
-            indent = 8 + depth * 12
+            indent = 8 + row.depth * 12
             lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
-    @staticmethod
-    def _collect_rows(node: Node, connected_paths: frozenset[str],
-                      connected_only: bool, show_subpins: bool) -> list[tuple]:
-        rows: list[tuple] = []
+        self.bus = _NodeItemBus()
 
-        def walk(pin: Pin, path: str, depth: int) -> None:
-            if (not connected_only) or (path in connected_paths):
-                rows.append((pin, path, depth))
-            if show_subpins:
-                for sp in pin.subpins:
-                    walk(sp, f"{path}.{sp.name}", depth + 1)
+    def toggle_pin_at_row(self, row_index: int) -> None:
+        if 0 <= row_index < len(self._row_paths):
+            self.bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
-        for pin in node.pins:
-            walk(pin, f"{node.name}.{pin.name}", 0)
-        return rows
+    def mouseDoubleClickEvent(self, event) -> None:
+        y = event.pos().y()
+        row = int((y - HEADER_HEIGHT) / ROW_HEIGHT)
+        if 0 <= row < len(self._row_paths):
+            self.toggle_pin_at_row(row)
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def has_pin_row(self, full_path: str) -> bool:
         return full_path in self._rows

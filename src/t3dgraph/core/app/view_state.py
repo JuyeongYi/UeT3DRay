@@ -8,8 +8,8 @@ class ViewState:
     selected_node: str | None = None
     hidden_node_types: set[str] = field(default_factory=set)
     connected_pins_only: bool = False
-    expand_subpins: bool = False
     fan_in_highlight: bool = False
+    expanded_pin_paths: set[str] = field(default_factory=set)
 
     def select(self, node: str | None) -> None:
         self.selected_node = node
@@ -26,8 +26,20 @@ class ViewState:
     def set_connected_pins_only(self, value: bool) -> None:
         self.connected_pins_only = value
 
-    def set_expand_subpins(self, value: bool) -> None:
-        self.expand_subpins = value
-
     def set_fan_in_highlight(self, value: bool) -> None:
         self.fan_in_highlight = value
+
+    def is_pin_expanded(self, full_path: str) -> bool:
+        return full_path in self.expanded_pin_paths
+
+    def toggle_pin_expanded(self, full_path: str) -> None:
+        if full_path in self.expanded_pin_paths:
+            self.expanded_pin_paths.remove(full_path)
+        else:
+            self.expanded_pin_paths.add(full_path)
+
+    def expand_all_pins(self, paths: list[str]) -> None:
+        self.expanded_pin_paths.update(paths)
+
+    def collapse_all_pins(self) -> None:
+        self.expanded_pin_paths.clear()

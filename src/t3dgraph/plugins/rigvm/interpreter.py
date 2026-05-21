@@ -7,6 +7,8 @@ from ...core.t3d.document import T3DDocument
 from ...core.t3d.objects import T3DObject
 from ...core.t3d.values import Value, Scalar, QuotedString, Struct
 from ...core.t3d.paths import node_of
+from .display_name import display_name_for
+from .role import role_for
 
 
 def _text(v: Value | None) -> str | None:
@@ -81,6 +83,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             g.links.append(Link(source_path=src, target_path=tgt))
 
     def _add_node(self, obj: T3DObject, g: GraphModel) -> None:
+        summary, category = role_for(obj)
         node = Node(
             name=obj.name or "",
             cls=obj.cls,
@@ -88,6 +91,9 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             position=_position(obj),
             raw=dict(obj.properties),
             kind=_classify_kind(obj),
+            display_name=display_name_for(obj),
+            role_summary=summary,
+            role_category=category,
         )
         g.nodes.append(node)
         if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
@@ -105,6 +111,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
 
     def _add_generic(self, obj: T3DObject, g: GraphModel) -> None:
         g.warnings.append(f"알 수 없는 클래스 '{obj.cls}' — 제네릭 노드로 폴백")
+        summary, category = role_for(obj)
         g.nodes.append(Node(
             name=obj.name or "",
             cls=obj.cls,
@@ -113,4 +120,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             raw=dict(obj.properties),
             is_generic=True,
             kind=_classify_kind(obj),
+            display_name=display_name_for(obj),
+            role_summary=summary,
+            role_category=category,
         ))
