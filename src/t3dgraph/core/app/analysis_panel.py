@@ -58,12 +58,11 @@ class AnalysisPanel(NavigablePanel):
         if item is not None:
             self._on_activated(item, 0)
 
-    def highlight_node(self, node: str | None) -> None:
-        item = self._rows.get(node) if node else None
-        if item is not None:
-            self._tree.setCurrentItem(item)
-        else:
-            self._tree.clearSelection()
+    def _lookup_item(self, name: str):
+        return self._rows.get(name)
+
+    def _clear_highlight(self) -> None:
+        self._tree.clearSelection()
 
     def highlighted_node(self) -> str | None:
         item = self._tree.currentItem()
