@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_bottom)
 
         self._open_handler: Callable[[str], None] | None = None
+        self._resolver = None
         self._build_menu()
         self._build_view_mode_toolbar()
         self._wire()
@@ -82,7 +83,21 @@ class MainWindow(QMainWindow):
     def _build_menu(self) -> None:
         file_menu = self.menuBar().addMenu("파일")
         file_menu.addAction("열기…").triggered.connect(self._on_open)
+        file_menu.addAction("에셋 폴더 열기…").triggered.connect(self._on_open_folder)
         file_menu.addAction("종료").triggered.connect(self.close)
+
+    def _on_open_folder(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        from pathlib import Path
+        from ..t3d.resolver import AssetResolver
+        folder = QFileDialog.getExistingDirectory(self, '에셋 폴더 선택')
+        if not folder:
+            return
+        self._resolver = AssetResolver()
+        self._resolver.load_folder(Path(folder))
+        for path in sorted(Path(folder).glob('*.t3d.txt')):
+            if self._open_handler:
+                self._open_handler(str(path))
 
     def _build_view_mode_toolbar(self) -> None:
         from PySide6.QtGui import QAction
