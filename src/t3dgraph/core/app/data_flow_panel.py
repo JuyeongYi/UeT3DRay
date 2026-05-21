@@ -1,8 +1,11 @@
 """계산(데이터) 흐름 패널 — sink별 의존 트리 + 핀 라벨 + 다중 인덱싱."""
 from __future__ import annotations
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtWidgets import (
+    QPlainTextEdit, QSplitter, QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
+)
 from ..analysis.data_flow import DataFlowResult, DataFlowEdge, dependency_tree, DepNode
+from ..analysis.compute_trace import compute_trace
 from .navigable_panel import NavigablePanel
 
 _NODE_ROLE = Qt.UserRole + 1
@@ -17,15 +20,24 @@ class DataFlowPanel(NavigablePanel):
         self._summary = QLabel("(그래프를 열어주세요)")
         self._tree = QTreeWidget()
         self._tree.setHeaderLabels(["sink/노드 ← 의존 (핀)"])
+        self._trace = QPlainTextEdit()
+        self._trace.setReadOnly(True)
+        self._trace.setPlaceholderText('(sink 선택 시 의존 트레이스)')
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(self._tree)
+        splitter.addWidget(self._trace)
         layout.addWidget(self._summary)
-        layout.addWidget(self._tree)
+        layout.addWidget(splitter)
         self._tree.itemActivated.connect(self._on_activated)
         # D-A2: 한 노드의 모든 등장 위치
         self._items: dict[str, list[QTreeWidgetItem]] = {}
+        self._incoming_cache: dict[str, list[str]] | None = None
 
     def show_result(self, r: DataFlowResult) -> None:
         self._tree.clear()
         self._items = {}
+        self._trace.setPlainText('')
+        self._incoming_cache = r.incoming_nodes
         if not r.all_nodes:
             self._summary.setText("(노드 없음)")
             return
@@ -84,6 +96,21 @@ class DataFlowPanel(NavigablePanel):
         name = item.data(0, _NODE_ROLE)
         if name:
             self.navigate_requested.emit(name)
+            self._update_trace(name)
+
+    def _update_trace(self, node: str) -> None:
+        if not self._incoming_cache:
+            return
+        levels = compute_trace(node, self._incoming_cache)
+        lines = [f'sink: {node}']
+        for lv in levels:
+            if lv.depth == 0:
+                continue
+            lines.append(f'  level {lv.depth}: {", ".join(lv.nodes)}')
+        self._trace.setPlainText('\n'.join(lines))
+
+    def trace_text(self) -> str:
+        return self._trace.toPlainText()
 
     def activate_node(self, name: str) -> None:
         items = self._items.get(name)
