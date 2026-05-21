@@ -90,7 +90,7 @@ def test_bottom_dock_has_analysis_tabs(qtbot):
     tabs = w.dock_bottom.widget()
     assert isinstance(tabs, QTabWidget)
     titles = {tabs.tabText(i) for i in range(tabs.count())}
-    assert titles == {"수렴점", "실행 순서"}
+    assert titles == {"수렴점", "실행 순서", "계산 흐름"}
 
 
 def test_show_graph_populates_execution_order(qtbot):
