@@ -55,7 +55,11 @@ class GraphScene(QGraphicsScene):
         out: dict[str, set[str]] = {}
         for link in graph.links:
             for path in (link.source_path, link.target_path):
-                out.setdefault(pin_segment(path, 0), set()).add(path)
+                node = pin_segment(path, 0)
+                bucket = out.setdefault(node, set())
+                parts = path.split(".")
+                for i in range(2, len(parts) + 1):
+                    bucket.add(".".join(parts[:i]))
         return out
 
     def _add_link(self, link: Link) -> None:
