@@ -7,7 +7,7 @@ from pathlib import Path
 from .core.t3d.objects import T3DParseError
 from .core.analysis.bundle import run as run_analyses
 from ._cli.load import strict_load, lenient_load
-from ._cli.serialize import summary_dict, dataflow_dict
+from ._cli.serialize import summary_dict, dataflow_dict, diff_dict
 
 
 def _make_parser() -> argparse.ArgumentParser:
@@ -23,6 +23,12 @@ def _make_parser() -> argparse.ArgumentParser:
     p_df.add_argument('file')
     p_df.add_argument('--lenient', action='store_true')
     p_df.add_argument('--json', action='store_true')
+
+    p_diff = subs.add_parser('diff', help='두 파일의 데이터 흐름 diff')
+    p_diff.add_argument('file_a')
+    p_diff.add_argument('file_b')
+    p_diff.add_argument('--lenient', action='store_true')
+    p_diff.add_argument('--json', action='store_true')
 
     return parser
 
@@ -101,9 +107,47 @@ def _cmd_dataflow(args) -> int:
     return 0
 
 
+def _cmd_diff(args) -> int:
+    from .core.analysis.data_flow_diff import diff_data_flow
+    pa = Path(args.file_a)
+    pb = Path(args.file_b)
+    for p in (pa, pb):
+        if not p.is_file():
+            print(f'파일을 찾을 수 없습니다: {p}', file=sys.stderr)
+            return 2
+    try:
+        ga, wa = _load(pa, args.lenient)
+        gb, wb = _load(pb, args.lenient)
+    except (UnicodeDecodeError, T3DParseError, LookupError) as e:
+        print(f'실패: {e}', file=sys.stderr)
+        return 4
+    if ga is None or gb is None:
+        for w in wa + wb:
+            print(f'warning: {w}', file=sys.stderr)
+        return 0 if args.lenient else 4
+    d = diff_data_flow(run_analyses(ga).data_flow, run_analyses(gb).data_flow)
+    if args.json:
+        print(json.dumps(diff_dict(d), ensure_ascii=False, indent=2))
+    else:
+        print(f'sinks only in A: {", ".join(d.sinks_only_in_a) or "(없음)"}')
+        print(f'sinks only in B: {", ".join(d.sinks_only_in_b) or "(없음)"}')
+        print(f'sinks common: {len(d.sinks_common)}')
+        for s, v in d.per_sink.items():
+            if not (v.added_ancestors or v.removed_ancestors or v.depth_changes):
+                continue
+            print(f'  {s}:')
+            if v.added_ancestors:
+                print(f'    +ancestors: {", ".join(v.added_ancestors)}')
+            if v.removed_ancestors:
+                print(f'    -ancestors: {", ".join(v.removed_ancestors)}')
+            for n, (da, db) in v.depth_changes.items():
+                print(f'    ~depth {n}: {da} -> {db}')
+    return 0
+
+
 def run(argv: list[str]) -> int:
     # 하위 호환: 첫 인자가 서브커맨드가 아니면 summary로 위임
-    if argv and argv[0] not in ('summary', 'dataflow', '-h', '--help') and not argv[0].startswith('-'):
+    if argv and argv[0] not in ('summary', 'dataflow', 'diff', '-h', '--help') and not argv[0].startswith('-'):
         argv = ['summary'] + argv
     parser = _make_parser()
     args = parser.parse_args(argv)
@@ -111,6 +155,8 @@ def run(argv: list[str]) -> int:
         return _cmd_summary(args)
     if args.subcommand == 'dataflow':
         return _cmd_dataflow(args)
+    if args.subcommand == 'diff':
+        return _cmd_diff(args)
     parser.print_help()
     return 2
 
