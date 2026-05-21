@@ -48,6 +48,4 @@ class AppController(AbstractGraphController):
             self.view.show_analyses(run_analyses(graph))
 
     def _fail(self, message: str) -> None:
-        show_error = getattr(self.view, "show_error", None)
-        if callable(show_error):
-            show_error(message)
+        self.view.show_error(message)

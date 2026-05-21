@@ -27,6 +27,11 @@ class AbstractGraphView(ABC):
         """(deprecated) 데이터 흐름 분석 결과를 계산 흐름 도크에 표시한다."""
         raise NotImplementedError
 
+    @abstractmethod
+    def show_error(self, message: str) -> None:
+        """오류 메시지를 사용자에게 표시한다."""
+        raise NotImplementedError
+
 
 class AbstractGraphController(ABC):
     @abstractmethod
