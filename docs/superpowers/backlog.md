@@ -55,6 +55,20 @@
 | FEAT-15 | 단일 탭 시 탭바 자동 숨김 — `setVisible(count > 1)`. |
 | FEAT-16 | 최근 파일 목록 메뉴 — 4~8개. |
 
+### improver Slice θ-1 리뷰 findings (2026-05-22, master e714ed2) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **θ1-A1** | trace 텍스트가 핀 단위 정보 손실 — `compute_trace(incoming_nodes)`가 노드 단위. `data_edges` PinRef를 활용해 "A.O → S.I" 핀 단위 trace 라인. D-A1 일관성 회복. |
+| θ1-A2 | 라벨 "sink:"가 비-sink 노드에도 출력 — 활성 노드가 sink면 "sink:", 아니면 "trace from:" 동적 라벨. |
+| θ1-A3 | `compute_trace` max_depth 무경고 절단 — `truncated: bool` 또는 sentinel 라인. |
+| θ1-B1 | `depth=0` 알고리즘 ↔ UI 스킵 어긋남 — `include_root` 플래그 또는 알고리즘 depth 1부터 통일. |
+| θ1-B2 | `activate_node` 외부 호출 경로에서 trace 갱신 누락 — `_on_activated` 단일 진입점화. |
+| θ1-B3 | `QSplitter` stretch factor 미설정 — tree(3) : trace(1) 위계 반영. |
+| FEAT-17 | Trace 텍스트의 노드명 클릭 네비 — QListWidget 또는 rich-text 링크. |
+| FEAT-18 | CLI `compute-trace <file> <sink>` — bundle에 이미 compute_trace 있음. ζ pattern 활용. |
+| FEAT-19 | Trace diff (두 파일 같은 sink) — depth별 노드 set diff. dataflow-diff와 짝. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
