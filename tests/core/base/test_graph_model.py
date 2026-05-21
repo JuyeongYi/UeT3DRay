@@ -63,3 +63,16 @@ def test_graph_model_meta_defaults():
     assert g.label is None
     assert g.parent_node is None
     assert g.boundary_refs == []
+
+
+def test_node_extra_subgraphs_default_empty():
+    n = Node(name='X', cls=None)
+    assert n.extra_subgraphs == []
+
+
+def test_node_extra_subgraphs_accepts_models():
+    inner1 = GraphModel(label='g1')
+    inner2 = GraphModel(label='g2')
+    n = Node(name='X', cls=None, subgraph=inner1, extra_subgraphs=[inner2])
+    assert n.subgraph is inner1
+    assert n.extra_subgraphs == [inner2]
