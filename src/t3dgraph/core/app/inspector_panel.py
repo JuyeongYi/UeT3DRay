@@ -46,7 +46,15 @@ class InspectorPanel(NavigablePanel):
         if node is None:
             self._title.setText("(노드를 선택하세요)")
             return
-        self._title.setText(f"{node.name}  [{node.cls or '?'}]")
+        header = node.display_name or node.name or "?"
+        cls_part = node.cls or "?"
+        role_bits = []
+        if node.role_category:
+            role_bits.append(node.role_category)
+        if node.role_summary:
+            role_bits.append(node.role_summary)
+        role_suffix = f"   ·   역할: {' · '.join(role_bits)}" if role_bits else ""
+        self._title.setText(f"{header}  [{cls_part}]{role_suffix}")
         connected = _connected_pin_paths(graph)
         for pin in node.pins:
             self._add_pin(pin, node.name, pin.name, connected, graph, self._tree.invisibleRootItem())
