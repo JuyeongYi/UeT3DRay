@@ -36,6 +36,7 @@ class BreadcrumbBar(QWidget):
     def segment_labels(self) -> list[str]:
         return [b.text() for b in self._buttons]
 
-    def click_segment(self, index: int) -> None:
+    def _click_for_test(self, index: int) -> None:
+        """테스트 전용 — 헤드리스에서 시그널 트리거. 프로덕션 코드는 호출 금지."""
         if 0 <= index < len(self._buttons):
             self._buttons[index].click()

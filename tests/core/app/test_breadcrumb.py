@@ -24,7 +24,7 @@ def test_segment_click_emits_index(qapp):
     bar.set_segments(["A", "B", "C"])
     received: list[int] = []
     bar.segment_clicked.connect(received.append)
-    bar.click_segment(1)
+    bar._click_for_test(1)
     assert received == [1]
 
 

@@ -154,8 +154,8 @@ class NodeItem(QGraphicsRectItem):
             return
         super().mouseDoubleClickEvent(event)
 
-    def simulate_header_double_click(self) -> None:
-        """테스트용 — 실제 마우스 이벤트 없이 시그널만 발생시킨다."""
+    def _emit_enter_subgraph_for_test(self) -> None:
+        """테스트 전용 — 헤더 더블클릭 시그널 직접 발사."""
         if self._bus is not None and self.node.subgraph is not None:
             self._bus.enter_subgraph_requested.emit(self.node.name)
 
