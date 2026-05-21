@@ -2,6 +2,7 @@ from __future__ import annotations
 from ..core.base.graph_model import GraphModel
 from ..core.analysis.bundle import AnalysisBundle
 from ..core.analysis.data_flow import DataFlowResult
+from ..core.analysis.data_flow_diff import DataFlowDiff
 
 
 def summary_dict(graph_type: str, graph: GraphModel, bundle: AnalysisBundle) -> dict:
@@ -30,4 +31,20 @@ def dataflow_dict(result: DataFlowResult) -> dict:
         'incoming_nodes': {k: list(v) for k, v in result.incoming_nodes.items()},
         'outgoing_nodes': {k: list(v) for k, v in result.outgoing_nodes.items()},
         'all_nodes': list(result.all_nodes),
+    }
+
+
+def diff_dict(d: DataFlowDiff) -> dict:
+    return {
+        'sinks_only_in_a': list(d.sinks_only_in_a),
+        'sinks_only_in_b': list(d.sinks_only_in_b),
+        'sinks_common': list(d.sinks_common),
+        'per_sink': {
+            s: {
+                'added_ancestors': v.added_ancestors,
+                'removed_ancestors': v.removed_ancestors,
+                'depth_changes': {n: list(pair) for n, pair in v.depth_changes.items()},
+            }
+            for s, v in d.per_sink.items()
+        },
     }
