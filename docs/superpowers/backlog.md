@@ -69,6 +69,20 @@
 | FEAT-4 | CLI `--json` 구조화 출력 — 파이프라인 컴포넌트화. |
 | FEAT-5 | 실행 순서 패널 코드형 렌더링 고도화 — spec §7.2의 ForEach/Sequence 중첩·`name(){}` 드릴다운. (improver Phase 2c C1) |
 
+## improver Slice D 리뷰 findings (2026-05-21, PR #3) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **D-A1** | **핀 단위 데이터 엣지 정보 손실** — `DataFlowResult.data_edges`가 `(s_node, t_node)`만 보존, 어느 핀끼리인지 정보 손실. `(source_pin_rel, target_pin_rel)`까지 보존하면 인스펙터 툴팁·다중 링크 식별·diff 가능. **임팩트 최대 — A2/A3·C1/C2의 공통 비용 감소 효과.** |
+| D-A2 | DataFlowPanel `_items.setdefault`라 한 노드가 두 sink 트리에 등장 시 첫 항목만 인덱싱 → 두 번째 위치 네비게이션 비대칭. `dict[str, list[item]]`로 바꾸거나 "[위 참조]" 표식. |
+| D-A3 | `inputs_of`/`outputs_of` adjacency 중복 누적(다중 핀 링크 시) — set 누적 후 정렬 리스트 노출. |
+| D-B1 | `show_data_flow` 타입힌트 누락 (`contracts.py`/`main_window.py`) — `DataFlowResult` 명시. |
+| D-B2 | 핀 상대 경로 슬라이싱 헬퍼(`pin_rel_path(node_name, full_path)`) 추출 — `_collect_exec_pin_paths.walk`와 `analyze_data_flow`의 중복 로직. `core/base`로 위치(BL1-B1과 동일 결). |
+| D-B3 | AppController 분석 오케스트레이션 → `analyses.bundle.run(graph) -> AnalysisBundle` + `view.show_analyses(bundle)` 패턴으로 묶기 — 다음 분석 추가 시 3곳 변경 비용 제거. |
+| FEAT-6 | CLI `t3dgraph dataflow <file>` — `data_edges`/`sinks`/`sources`/`isolated` 텍스트·JSON 덤프. RigVM PR 리뷰용. |
+| FEAT-7 | 두 t3d 파일 간 데이터 흐름 diff — 동일 sink 기준 의존 트리 추가/제거/깊이 변화. |
+| FEAT-8 | Sink 단위 "compute trace" 코드형 렌더 — DAG depth(레벨)별 의존 노드 평탄화. FEAT-5와 짝. |
+
 ---
 
 ## 처리 계획

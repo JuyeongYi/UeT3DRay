@@ -27,6 +27,7 @@ class Node:
     display_name: str | None = None
     role_summary: str | None = None
     role_category: str | None = None
+    subgraph: "GraphModel | None" = None      # F6: ContainedGraph 추출 결과
 
 
 @dataclass
@@ -49,6 +50,9 @@ class GraphModel:
     variable_refs: list[VariableRef] = field(default_factory=list)
     external_refs: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    label: str | None = None                                # F5: 브레드크럼/탭 라벨
+    parent_node: str | None = None                          # F6: 자식 그래프의 부모 노드명
+    boundary_refs: list[str] = field(default_factory=list)  # §7.4 경계 핀 참조
 
     def node_by_name(self, name: str) -> Node | None:
         for n in self.nodes:

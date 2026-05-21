@@ -10,7 +10,8 @@ from .view_state import ViewState
 
 
 class GraphScene(QGraphicsScene):
-    pin_toggle_requested = Signal(str)  # full_path
+    pin_toggle_requested = Signal(str)        # Slice A: 핀 행 토글 (full_path)
+    enter_subgraph_requested = Signal(str)    # Slice C: 헤더 더블클릭 (node name)
 
     def __init__(self) -> None:
         super().__init__()
@@ -47,6 +48,7 @@ class GraphScene(QGraphicsScene):
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
                 fallback_i += 1
             item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
+            item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
