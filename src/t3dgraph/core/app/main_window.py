@@ -17,6 +17,7 @@ from .node_filter_panel import NodeFilterPanel
 from .analysis_panel import AnalysisPanel
 from .execution_order_panel import ExecutionOrderPanel
 from .data_flow_panel import DataFlowPanel
+from .minimap_panel import MinimapPanel
 
 
 class MainWindow(QMainWindow):
@@ -61,10 +62,14 @@ class MainWindow(QMainWindow):
         bottom_tabs.addTab(self.exec_order_panel, "실행 순서")
         bottom_tabs.addTab(self.data_flow_panel, "계산 흐름")
 
+        self.minimap = MinimapPanel()
+
         self.dock_left = self._dock("노드 타입 필터", self.node_filter)
+        self.dock_minimap = self._dock("미니맵", self.minimap)
         self.dock_right = self._dock("속성 인스펙터", self.inspector)
         self.dock_bottom = self._dock("분석", bottom_tabs)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.dock_left)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.dock_minimap)
         self.addDockWidget(Qt.RightDockWidgetArea, self.dock_right)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.dock_bottom)
 
@@ -194,6 +199,7 @@ class MainWindow(QMainWindow):
         self.data_flow_panel.navigate_requested.connect(self._navigate_to)
         self.scene.enter_subgraph_requested.connect(self._on_enter_subgraph)
         self.breadcrumb.segment_clicked.connect(self._on_breadcrumb_clicked)
+        self.minimap.location_clicked.connect(self._on_minimap_click)
 
     def _on_search_changed(self) -> None:
         if self.graph is None:
@@ -210,6 +216,13 @@ class MainWindow(QMainWindow):
             self, "T3D 파일 열기", "", "T3D files (*.t3d *.txt);;All files (*)")
         if path:
             self.open_path(path)
+
+    def _on_minimap_click(self, root_index: int, depth: int) -> None:
+        if root_index != self._tab_bar.currentIndex():
+            self._tab_bar.setCurrentIndex(root_index)
+        else:
+            self.graph_stack.jump_to(depth)
+            self._render_current()
 
     def set_open_handler(self, handler: Callable[[str], None]) -> None:
         self._open_handler = handler
@@ -295,6 +308,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             f"노드 {len(current.nodes)} · 링크 {len(current.links)}", 5000)
         self.show_analyses(bundle)
+        self.minimap.show_stack(self.graph_stack)
 
     def show_graph(self, graph: GraphModel) -> None:
         """레거시 진입점 — 새 루트로 push."""
