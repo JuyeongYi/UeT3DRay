@@ -78,7 +78,8 @@ class NodeItem(QGraphicsRectItem):
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, NODE_WIDTH, height))
         self.node = node
-        self.bus = _NodeItemBus()
+        needs_bus = node.subgraph is not None or bool(node.pins)
+        self._bus: _NodeItemBus | None = _NodeItemBus() if needs_bus else None
         x, y = node.position if node.position else (0.0, 0.0)
         self.setPos(x, y)
         if highlighted:
@@ -118,9 +119,13 @@ class NodeItem(QGraphicsRectItem):
             lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
+    @property
+    def bus(self) -> _NodeItemBus | None:
+        return self._bus
+
     def toggle_pin_at_row(self, row_index: int) -> None:
-        if 0 <= row_index < len(self._row_paths):
-            self.bus.pin_toggle_requested.emit(self._row_paths[row_index])
+        if self._bus is not None and 0 <= row_index < len(self._row_paths):
+            self._bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
     def _try_emit_enter_subgraph(self, y: float) -> bool:
         """헤더 영역에서 subgraph 보유 노드일 때만 enter_subgraph_requested 발사.
@@ -130,8 +135,8 @@ class NodeItem(QGraphicsRectItem):
         subgraph가 없는 노드는 시그널을 발사하지 않는다 — 수신측 noop이라도
         사용자가 무반응을 인지하기보다 호출 자체가 없는 편이 명확.
         """
-        if y < HEADER_HEIGHT and self.node.subgraph is not None:
-            self.bus.enter_subgraph_requested.emit(self.node.name)
+        if y < HEADER_HEIGHT and self.node.subgraph is not None and self._bus is not None:
+            self._bus.enter_subgraph_requested.emit(self.node.name)
             return True
         return False
 
@@ -151,7 +156,8 @@ class NodeItem(QGraphicsRectItem):
 
     def simulate_header_double_click(self) -> None:
         """테스트용 — 실제 마우스 이벤트 없이 시그널만 발생시킨다."""
-        self.bus.enter_subgraph_requested.emit(self.node.name)
+        if self._bus is not None and self.node.subgraph is not None:
+            self._bus.enter_subgraph_requested.emit(self.node.name)
 
     def has_pin_row(self, full_path: str) -> bool:
         return full_path in self._rows

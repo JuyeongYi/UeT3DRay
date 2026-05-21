@@ -47,8 +47,9 @@ class GraphScene(QGraphicsScene):
             if node.position is None:
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
                 fallback_i += 1
-            item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
-            item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
+            if item.bus is not None:
+                item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
+                item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
