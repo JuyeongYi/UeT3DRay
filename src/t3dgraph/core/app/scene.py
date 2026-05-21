@@ -4,7 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
-from ..base.paths import pin_segment, type_suffix, node_of
+from ..base.paths import type_suffix, node_of
 from .items import NodeItem, LinkItem
 from .view_state import ViewState
 
@@ -64,7 +64,7 @@ class GraphScene(QGraphicsScene):
         out: dict[str, set[str]] = {}
         for link in graph.links:
             for path in (link.source_path, link.target_path):
-                node = pin_segment(path, 0)
+                node = node_of(path)
                 bucket = out.setdefault(node, set())
                 parts = path.split(".")
                 for i in range(2, len(parts) + 1):
