@@ -97,6 +97,8 @@ class NodeItem(QGraphicsRectItem):
             chev = QGraphicsSimpleTextItem("▶", self)
             chev.setBrush(QBrush(QColor(200, 200, 120)))
             chev.setPos(NODE_WIDTH - 16, 5)
+            self.setCursor(Qt.PointingHandCursor)
+            self.setToolTip("더블클릭하여 서브그래프 진입")
 
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]

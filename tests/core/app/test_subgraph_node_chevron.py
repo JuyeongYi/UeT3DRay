@@ -29,3 +29,23 @@ def test_no_chevron_when_no_subgraph(qapp):
     chevrons = [c for c in item.childItems()
                 if isinstance(c, QGraphicsSimpleTextItem) and c.text() == "▶"]
     assert chevrons == []
+
+
+def test_subgraph_node_uses_pointing_hand_cursor(qapp):
+    from PySide6.QtCore import Qt
+    node = Node(name="P", cls=None, subgraph=GraphModel(label="x"))
+    item = NodeItem(node)
+    assert item.cursor().shape() == Qt.PointingHandCursor
+
+
+def test_subgraph_node_has_drilldown_tooltip(qapp):
+    node = Node(name="P", cls=None, subgraph=GraphModel(label="x"))
+    item = NodeItem(node)
+    assert "더블클릭" in item.toolTip()
+
+
+def test_non_subgraph_node_no_special_cursor(qapp):
+    from PySide6.QtCore import Qt
+    node = Node(name="X", cls=None)
+    item = NodeItem(node)
+    assert item.cursor().shape() != Qt.PointingHandCursor
