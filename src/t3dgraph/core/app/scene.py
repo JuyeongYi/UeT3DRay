@@ -1,5 +1,6 @@
 """GraphModel → QGraphicsScene 빌드."""
 from __future__ import annotations
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
@@ -9,6 +10,8 @@ from .view_state import ViewState
 
 
 class GraphScene(QGraphicsScene):
+    pin_toggle_requested = Signal(str)  # full_path
+
     def __init__(self) -> None:
         super().__init__()
         self._nodes: dict[str, NodeItem] = {}
@@ -43,6 +46,7 @@ class GraphScene(QGraphicsScene):
             if node.position is None:
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
                 fallback_i += 1
+            item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:

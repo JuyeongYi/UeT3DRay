@@ -128,10 +128,15 @@ class MainWindow(QMainWindow):
 
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
+        self.scene.pin_toggle_requested.connect(self._on_pin_toggle)
         self.node_filter.type_toggled.connect(self._on_type_toggled)
         self.inspector.navigate_requested.connect(self._navigate_to)
         self.analysis_panel.navigate_requested.connect(self._navigate_to)
         self.exec_order_panel.navigate_requested.connect(self._navigate_to)
+
+    def _on_pin_toggle(self, full_path: str) -> None:
+        self.view_state.toggle_pin_expanded(full_path)
+        self._rebuild_scene()
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

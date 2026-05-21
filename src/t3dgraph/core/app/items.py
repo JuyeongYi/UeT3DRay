@@ -1,13 +1,17 @@
 """QGraphicsItem 기반 노드/핀/링크 렌더링 요소."""
 from __future__ import annotations
 from dataclasses import dataclass
-from PySide6.QtCore import QRectF, QPointF, Qt
+from PySide6.QtCore import QRectF, QPointF, Qt, QObject, Signal
 from PySide6.QtGui import QPen, QBrush, QColor
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
     QGraphicsLineItem, QGraphicsItem,
 )
 from ..base.graph_model import Node, Pin
+
+
+class _NodeItemBus(QObject):
+    pin_toggle_requested = Signal(str)  # full_path
 
 NODE_WIDTH = 200.0
 ROW_HEIGHT = 20.0
@@ -102,6 +106,21 @@ class NodeItem(QGraphicsRectItem):
             indent = 8 + row.depth * 12
             lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+
+        self.bus = _NodeItemBus()
+
+    def toggle_pin_at_row(self, row_index: int) -> None:
+        if 0 <= row_index < len(self._row_paths):
+            self.bus.pin_toggle_requested.emit(self._row_paths[row_index])
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        y = event.pos().y()
+        row = int((y - HEADER_HEIGHT) / ROW_HEIGHT)
+        if 0 <= row < len(self._row_paths):
+            self.toggle_pin_at_row(row)
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
     def has_pin_row(self, full_path: str) -> bool:
         return full_path in self._rows
