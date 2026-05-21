@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QLineEdit
 from ..base.graph_model import GraphModel
-from ..t3d.paths import type_suffix
+from ..base.paths import type_suffix
 
 
 class NodeFilterPanel(QWidget):

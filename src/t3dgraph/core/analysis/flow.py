@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from ..base.graph_model import GraphModel, Pin
-from ..t3d.paths import node_of, pin_segment
+from ..base.paths import node_of, pin_segment
 
 
 @dataclass

@@ -1,4 +1,7 @@
-from t3dgraph.core.analysis.data_flow import analyze_data_flow, DataFlowResult, dependency_tree
+from t3dgraph.core.analysis.data_flow import (
+    analyze_data_flow, DataFlowResult, DataFlowEdge, dependency_tree,
+)
+from t3dgraph.core.base.pin_ref import PinRef
 from t3dgraph.core.base.graph_model import GraphModel, Node, Pin, Link
 
 
@@ -29,8 +32,8 @@ def test_data_edges_exclude_exec_links():
         ],
     )
     r = analyze_data_flow(g)
-    assert ("Src", "Dst") in r.data_edges
-    assert ("ExecA", "ExecB") not in r.data_edges
+    assert any(e.source.node == "Src" and e.target.node == "Dst" for e in r.data_edges)
+    assert not any(e.source.node == "ExecA" and e.target.node == "ExecB" for e in r.data_edges)
 
 
 def test_inputs_outputs_indices():
@@ -46,9 +49,9 @@ def test_inputs_outputs_indices():
         ],
     )
     r = analyze_data_flow(g)
-    assert sorted(r.inputs_of["C"]) == ["A", "B"]
-    assert r.outputs_of["A"] == ["C"]
-    assert r.outputs_of["B"] == ["C"]
+    assert sorted(r.incoming_nodes["C"]) == ["A", "B"]
+    assert r.outgoing_nodes["A"] == ["C"]
+    assert r.outgoing_nodes["B"] == ["C"]
 
 
 def test_sinks_and_sources():
@@ -91,18 +94,18 @@ def test_handles_cycles_without_recursion_blowup():
         ],
     )
     r = analyze_data_flow(g)
-    assert ("A", "B") in r.data_edges
-    assert ("B", "A") in r.data_edges
+    assert any(e.source.node == "A" and e.target.node == "B" for e in r.data_edges)
+    assert any(e.source.node == "B" and e.target.node == "A" for e in r.data_edges)
 
 
 def test_dependency_tree_basic():
-    inputs_of = {
+    incoming = {
         "Sink": ["Mul"],
         "Mul": ["A", "B"],
         "A": [],
         "B": [],
     }
-    tree = dependency_tree("Sink", inputs_of)
+    tree = dependency_tree("Sink", incoming)
     assert tree.node == "Sink"
     children = [c.node for c in tree.children]
     assert children == ["Mul"]
@@ -111,11 +114,11 @@ def test_dependency_tree_basic():
 
 
 def test_dependency_tree_cycle_protection():
-    inputs_of = {
+    incoming = {
         "A": ["B"],
         "B": ["A"],
     }
-    tree = dependency_tree("A", inputs_of, max_depth=10)
+    tree = dependency_tree("A", incoming, max_depth=10)
 
     def walk(n, seen):
         seen.append(n.node)
@@ -125,3 +128,78 @@ def test_dependency_tree_cycle_protection():
     seen = []
     walk(tree, seen)
     assert seen.count("A") == 1
+
+
+# ---- 신규 테스트 (핀 단위 정보 보존 PRESERVE-INFO) ----
+
+def test_data_edges_carry_pin_refs():
+    g = GraphModel(
+        nodes=[
+            Node(name="A", cls=None, pins=[_data_pin("Out", "Output")]),
+            Node(name="B", cls=None, pins=[_data_pin("In", "Input")]),
+        ],
+        links=[Link(source_path="A.Out", target_path="B.In")],
+    )
+    r = analyze_data_flow(g)
+    assert len(r.data_edges) == 1
+    e = r.data_edges[0]
+    assert isinstance(e, DataFlowEdge)
+    assert e.source == PinRef(node="A", pin_path="Out")
+    assert e.target == PinRef(node="B", pin_path="In")
+
+
+def test_multiple_links_same_node_pair_each_preserved():
+    """같은 노드 쌍, 다른 핀 — 두 엣지 모두 보존(PRESERVE-INFO)."""
+    g = GraphModel(
+        nodes=[
+            Node(name="A", cls=None,
+                 pins=[_data_pin("O1", "Output"), _data_pin("O2", "Output")]),
+            Node(name="B", cls=None,
+                 pins=[_data_pin("I1", "Input"), _data_pin("I2", "Input")]),
+        ],
+        links=[
+            Link(source_path="A.O1", target_path="B.I1"),
+            Link(source_path="A.O2", target_path="B.I2"),
+        ],
+    )
+    r = analyze_data_flow(g)
+    assert len(r.data_edges) == 2
+    assert r.incoming_nodes["B"] == ["A"]
+
+
+def test_inputs_of_holds_edges_no_duplication():
+    g = GraphModel(
+        nodes=[
+            Node(name="A", cls=None,
+                 pins=[_data_pin("O1", "Output"), _data_pin("O2", "Output")]),
+            Node(name="B", cls=None,
+                 pins=[_data_pin("I1", "Input"), _data_pin("I2", "Input")]),
+        ],
+        links=[
+            Link(source_path="A.O1", target_path="B.I1"),
+            Link(source_path="A.O2", target_path="B.I2"),
+        ],
+    )
+    r = analyze_data_flow(g)
+    assert len(r.inputs_of["B"]) == 2
+    assert all(isinstance(e, DataFlowEdge) for e in r.inputs_of["B"])
+    assert r.incoming_nodes["B"] == ["A"]
+
+
+def test_sinks_and_sources_node_level_unchanged():
+    """노드 단위 sinks/sources는 batch ②와 동일 의미 보존."""
+    g = GraphModel(
+        nodes=[
+            Node(name="Src", cls=None, pins=[_data_pin("O", "Output")]),
+            Node(name="Mid", cls=None,
+                 pins=[_data_pin("I", "Input"), _data_pin("O", "Output")]),
+            Node(name="Snk", cls=None, pins=[_data_pin("I", "Input")]),
+        ],
+        links=[
+            Link(source_path="Src.O", target_path="Mid.I"),
+            Link(source_path="Mid.O", target_path="Snk.I"),
+        ],
+    )
+    r = analyze_data_flow(g)
+    assert r.sources == ["Src"]
+    assert r.sinks == ["Snk"]

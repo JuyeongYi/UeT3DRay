@@ -4,7 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QGraphicsScene
 from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
-from ..t3d.paths import pin_segment, type_suffix, node_of
+from ..base.paths import pin_segment, type_suffix, node_of
 from .items import NodeItem, LinkItem
 from .view_state import ViewState
 

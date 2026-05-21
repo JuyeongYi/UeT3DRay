@@ -2,6 +2,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from ..base.graph_model import GraphModel
+from ..analysis.data_flow import DataFlowResult
 
 
 class AbstractGraphView(ABC):
@@ -16,7 +17,7 @@ class AbstractGraphView(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def show_data_flow(self, result) -> None:
+    def show_data_flow(self, result: DataFlowResult) -> None:
         """데이터 흐름 분석 결과를 계산 흐름 도크에 표시한다."""
         raise NotImplementedError
 
