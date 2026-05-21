@@ -35,7 +35,9 @@ class GraphScene(QGraphicsScene):
                 node,
                 connected_paths=frozenset(connected.get(node.name, set())),
                 connected_only=vs.connected_pins_only,
-                show_subpins=vs.expand_subpins,
+                expanded_paths=frozenset(
+                    p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
+                ),
                 highlighted=vs.fan_in_highlight and node.name in convergence,
             )
             if node.position is None:
