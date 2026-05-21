@@ -1,7 +1,7 @@
 """QGraphicsItem 기반 노드/핀/링크 렌더링 요소."""
 from __future__ import annotations
 from dataclasses import dataclass
-from PySide6.QtCore import QRectF, QPointF, Qt, QObject, Signal
+from PySide6.QtCore import QObject, QRectF, QPointF, Qt, Signal
 from PySide6.QtGui import QPen, QBrush, QColor
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
@@ -11,7 +11,10 @@ from ..base.graph_model import Node, Pin
 
 
 class _NodeItemBus(QObject):
-    pin_toggle_requested = Signal(str)  # full_path
+    """QGraphicsRectItem은 QObject가 아니므로 Signal carrier를 별도 보관."""
+    pin_toggle_requested = Signal(str)        # Slice A: 핀 행 토글 (full_path)
+    enter_subgraph_requested = Signal(str)    # Slice C: 헤더 더블클릭 (node name)
+
 
 NODE_WIDTH = 200.0
 ROW_HEIGHT = 20.0
@@ -75,6 +78,7 @@ class NodeItem(QGraphicsRectItem):
                                 expanded=expanded_paths)
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, NODE_WIDTH, height))
+        self.bus = _NodeItemBus()
         x, y = node.position if node.position else (0.0, 0.0)
         self.setPos(x, y)
         if highlighted:
@@ -107,20 +111,28 @@ class NodeItem(QGraphicsRectItem):
             lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
-        self.bus = _NodeItemBus()
-
     def toggle_pin_at_row(self, row_index: int) -> None:
         if 0 <= row_index < len(self._row_paths):
             self.bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
-    def mouseDoubleClickEvent(self, event) -> None:
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
         y = event.pos().y()
+        # 헤더 영역 더블클릭 → 서브그래프 진입 시그널 (Slice C, F5/F6)
+        if y < HEADER_HEIGHT:
+            self.bus.enter_subgraph_requested.emit(self.node.name)
+            event.accept()
+            return
+        # 행 영역 더블클릭 → 핀 expand 토글 (Slice A, F9)
         row = int((y - HEADER_HEIGHT) / ROW_HEIGHT)
         if 0 <= row < len(self._row_paths):
             self.toggle_pin_at_row(row)
             event.accept()
             return
         super().mouseDoubleClickEvent(event)
+
+    def simulate_header_double_click(self) -> None:
+        """테스트용 — 실제 마우스 이벤트 없이 시그널만 발생시킨다."""
+        self.bus.enter_subgraph_requested.emit(self.node.name)
 
     def has_pin_row(self, full_path: str) -> bool:
         return full_path in self._rows
