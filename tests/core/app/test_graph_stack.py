@@ -65,6 +65,33 @@ def test_push_after_open_root_works():
     assert s.current().label == "child"
 
 
+def test_close_root_removes_and_adjusts_index():
+    s = GraphStack()
+    s.open_root(GraphModel(label='A'))
+    s.open_root(GraphModel(label='B'))
+    s.open_root(GraphModel(label='C'))
+    s.select_root(1)
+    s.close_root(0)
+    assert [r.label for r in s.roots()] == ['B', 'C']
+    assert s.current().label == 'B'
+
+
+def test_close_current_root_falls_back_to_neighbor():
+    s = GraphStack()
+    s.open_root(GraphModel(label='A'))
+    s.open_root(GraphModel(label='B'))
+    s.close_root(1)
+    assert s.current().label == 'A'
+
+
+def test_close_last_root_makes_current_none():
+    s = GraphStack()
+    s.open_root(GraphModel(label='A'))
+    s.close_root(0)
+    assert s.current() is None
+    assert s.roots() == []
+
+
 def test_open_new_root_adds_to_stack_list():
     """파일 여러 개 열기 — 별도 루트를 스택 리스트에 추가."""
     s = GraphStack()
