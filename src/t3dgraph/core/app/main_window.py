@@ -99,9 +99,16 @@ class MainWindow(QMainWindow):
     def _wire(self) -> None:
         self.scene.selectionChanged.connect(self._on_scene_selection)
         self.node_filter.type_toggled.connect(self._on_type_toggled)
+        self.node_filter.search_changed.connect(self._on_search_changed)
         self.inspector.navigate_requested.connect(self._navigate_to)
         self.analysis_panel.navigate_requested.connect(self._navigate_to)
         self.exec_order_panel.navigate_requested.connect(self._navigate_to)
+
+    def _on_search_changed(self) -> None:
+        if self.graph is None:
+            return
+        hits = self.node_filter.matched_node_names()
+        self.scene.apply_search_highlight(hits)
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(

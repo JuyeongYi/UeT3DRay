@@ -90,6 +90,11 @@ class GraphScene(QGraphicsScene):
         for name, item in self._nodes.items():
             item.set_highlighted(on and name in convergence)
 
+    def apply_search_highlight(self, hits: set[str]) -> None:
+        """검색 매치 노드는 불투명, 미매치는 흐리게. hide 금지(PRESERVE-ALL)."""
+        for name, item in self._nodes.items():
+            item.setOpacity(1.0 if name in hits else 0.35)
+
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():
             item.setVisible(type_suffix(item.node.cls) not in hidden_types)
