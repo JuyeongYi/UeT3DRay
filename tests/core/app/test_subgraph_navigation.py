@@ -30,7 +30,7 @@ def test_double_click_header_emits_enter_subgraph(qapp):
     scene.enter_subgraph_requested.connect(received.append)
     item = scene.node_item("P")
     assert item is not None
-    item.simulate_header_double_click()
+    item._emit_enter_subgraph_for_test()
     assert received == ["P"]
 
 
@@ -67,7 +67,7 @@ def test_enter_and_exit_subgraph(qapp):
     assert win.scene.node_item("P") is not None
 
     # 헤더 더블클릭 → 진입
-    win.scene.node_item("P").simulate_header_double_click()
+    win.scene.node_item("P")._emit_enter_subgraph_for_test()
     # inner 그래프 노드가 보여야
     assert win.scene.node_item("I") is not None
     # P 노드는 inner 그래프에 없으므로 캔버스에서 사라짐
@@ -77,7 +77,7 @@ def test_enter_and_exit_subgraph(qapp):
     assert win.breadcrumb.segment_labels() == ["root", "P/inner"]
 
     # 첫 세그먼트 클릭 → 루트 복귀
-    win.breadcrumb.click_segment(0)
+    win.breadcrumb._click_for_test(0)
     assert win.scene.node_item("P") is not None
     assert win.scene.node_item("I") is None
 
@@ -100,7 +100,7 @@ def test_preserve_all_nodes_after_drilldown(qapp):
     parent_node_count_before = len(parent_g.nodes)
     win = MainWindow()
     win.open_graph(parent_g, label="root")
-    win.scene.node_item("P").simulate_header_double_click()
-    win.breadcrumb.click_segment(0)         # 루트 복귀
+    win.scene.node_item("P")._emit_enter_subgraph_for_test()
+    win.breadcrumb._click_for_test(0)         # 루트 복귀
     assert len(parent_g.nodes) == parent_node_count_before
     assert parent_g.nodes[0].subgraph is inner   # 자식 참조 유지

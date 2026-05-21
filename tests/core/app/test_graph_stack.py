@@ -15,7 +15,7 @@ def test_initial_empty():
 def test_push_and_current():
     g = GraphModel(label="root")
     s = GraphStack()
-    s.push(g)
+    s.open_root(g)
     assert s.current() is g
     assert s.segments() == ["root"]
 
@@ -24,7 +24,7 @@ def test_push_child_and_pop():
     a = GraphModel(label="A")
     b = GraphModel(label="A/B", parent_node="N")
     s = GraphStack()
-    s.push(a)
+    s.open_root(a)
     s.push(b)
     assert s.current() is b
     assert s.segments() == ["A", "A/B"]
@@ -35,7 +35,7 @@ def test_push_child_and_pop():
 def test_pop_at_root_noop():
     g = GraphModel(label="A")
     s = GraphStack()
-    s.push(g)
+    s.open_root(g)
     s.pop()                       # 루트는 유지
     assert s.current() is g
 
@@ -45,10 +45,24 @@ def test_jump_to_index():
     a = GraphModel(label="A")
     b = GraphModel(label="B")
     c = GraphModel(label="C")
-    s.push(a); s.push(b); s.push(c)
+    s.open_root(a); s.push(b); s.push(c)
     s.jump_to(0)
     assert s.current() is a
     assert s.segments() == ["A"]
+
+
+def test_push_on_empty_stack_raises():
+    import pytest
+    s = GraphStack()
+    with pytest.raises(RuntimeError, match="open_root"):
+        s.push(GraphModel(label="x"))
+
+
+def test_push_after_open_root_works():
+    s = GraphStack()
+    s.open_root(GraphModel(label="root"))
+    s.push(GraphModel(label="child"))
+    assert s.current().label == "child"
 
 
 def test_open_new_root_adds_to_stack_list():
