@@ -28,6 +28,7 @@ class Node:
     role_summary: str | None = None
     role_category: str | None = None
     subgraph: "GraphModel | None" = None      # F6: ContainedGraph 추출 결과
+    extra_subgraphs: list["GraphModel"] = field(default_factory=list)  # C-A1: 다중 자식 보존
 
 
 @dataclass
