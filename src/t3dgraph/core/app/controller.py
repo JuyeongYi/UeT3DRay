@@ -40,12 +40,18 @@ class AppController(AbstractGraphController):
             self._fail(str(e))
             return
         graph = plugin.interpreter_factory().interpret(doc)
-        self.view.show_graph(graph)
-        flow = analyze_flow(graph)
-        order = compute_execution_order(graph, flow)
-        data_flow = analyze_data_flow(graph)
-        self.view.show_analysis(flow, order)
-        self.view.show_data_flow(data_flow)
+        open_graph = getattr(self.view, "open_graph", None)
+        if callable(open_graph):
+            # MainWindow는 open_graph 내부에서 분석/데이터플로까지 수행 (Slice C+D).
+            open_graph(graph, label=p.name)
+        else:
+            # 레거시 뷰 폴백 — 분석을 명시적으로 호출.
+            self.view.show_graph(graph)
+            flow = analyze_flow(graph)
+            order = compute_execution_order(graph, flow)
+            data_flow = analyze_data_flow(graph)
+            self.view.show_analysis(flow, order)
+            self.view.show_data_flow(data_flow)
 
     def _fail(self, message: str) -> None:
         show_error = getattr(self.view, "show_error", None)

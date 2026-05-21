@@ -2,11 +2,15 @@
 from __future__ import annotations
 from typing import Callable
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QFileDialog, QTabWidget
+from PySide6.QtWidgets import (
+    QMainWindow, QDockWidget, QFileDialog, QTabWidget, QVBoxLayout, QWidget,
+)
 from ..base.graph_model import GraphModel
 from .contracts import AbstractGraphView
 from .scene import GraphScene
 from .graph_view import GraphView
+from .graph_stack import GraphStack
+from .breadcrumb_bar import BreadcrumbBar
 from .view_state import ViewState
 from .inspector_panel import InspectorPanel
 from .node_filter_panel import NodeFilterPanel
@@ -28,7 +32,17 @@ class MainWindow(QMainWindow):
         self.scene = GraphScene()
         self.view = GraphView()
         self.view.setScene(self.scene)
-        self.setCentralWidget(self.view)
+
+        # F5: 그래프 스택 + 브레드크럼 바를 뷰 상단에 배치.
+        self.graph_stack = GraphStack()
+        self.breadcrumb = BreadcrumbBar()
+        central = QWidget()
+        vlay = QVBoxLayout(central)
+        vlay.setContentsMargins(0, 0, 0, 0)
+        vlay.setSpacing(0)
+        vlay.addWidget(self.breadcrumb)
+        vlay.addWidget(self.view)
+        self.setCentralWidget(central)
 
         self.node_filter = NodeFilterPanel()
         self.inspector = InspectorPanel()
@@ -138,6 +152,8 @@ class MainWindow(QMainWindow):
         self.analysis_panel.navigate_requested.connect(self._navigate_to)
         self.exec_order_panel.navigate_requested.connect(self._navigate_to)
         self.data_flow_panel.navigate_requested.connect(self._navigate_to)
+        self.scene.enter_subgraph_requested.connect(self._on_enter_subgraph)
+        self.breadcrumb.segment_clicked.connect(self._on_breadcrumb_clicked)
 
     def _on_search_changed(self) -> None:
         if self.graph is None:
@@ -182,14 +198,52 @@ class MainWindow(QMainWindow):
         if item is not None:
             self.view.centerOn(item)
 
-    def show_graph(self, graph: GraphModel) -> None:
-        self.graph = graph
-        self.scene.populate(graph, view_state=self.view_state, flow=None)
-        self.node_filter.set_graph(graph)
-        self.inspector.show_node(None, graph)
+    def open_graph(self, graph: GraphModel, *, label: str | None = None) -> None:
+        """새 루트 그래프 추가(파일 열기 진입점) — 브레드크럼 / 스택 갱신."""
+        if label and not graph.label:
+            graph.label = label
+        self.graph_stack.open_root(graph)
+        self._render_current()
+
+    def _on_enter_subgraph(self, node_name: str) -> None:
+        current = self.graph_stack.current()
+        if current is None:
+            return
+        node = current.node_by_name(node_name)
+        if node is None or node.subgraph is None:
+            return
+        self.graph_stack.push(node.subgraph)
+        self._render_current()
+
+    def _on_breadcrumb_clicked(self, index: int) -> None:
+        self.graph_stack.jump_to(index)
+        self._render_current()
+
+    def _render_current(self) -> None:
+        current = self.graph_stack.current()
+        if current is None:
+            return
+        self.graph = current
+        self.scene.populate(current, view_state=self.view_state, flow=None)
+        self.node_filter.set_graph(current)
+        self.inspector.show_node(None, current)
         self.view.fit()
+        self.breadcrumb.set_segments(self.graph_stack.segments())
         self.statusBar().showMessage(
-            f"노드 {len(graph.nodes)} · 링크 {len(graph.links)}", 5000)
+            f"노드 {len(current.nodes)} · 링크 {len(current.links)}", 5000)
+        # 분석 — 새 그래프(루트 or 서브그래프) 진입마다 갱신.
+        try:
+            from ..analysis.flow import analyze_flow
+            from ..analysis.execution_order import compute_execution_order
+            flow = analyze_flow(current)
+            order = compute_execution_order(current, flow)
+            self.show_analysis(flow, order)
+        except Exception:
+            pass
+
+    def show_graph(self, graph: GraphModel) -> None:
+        """레거시 진입점 — 새 루트로 push."""
+        self.open_graph(graph)
 
     def show_analysis(self, flow, order) -> None:
         self._flow = flow
