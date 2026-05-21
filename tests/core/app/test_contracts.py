@@ -18,6 +18,7 @@ def test_concrete_subclasses_instantiable():
         def show_analyses(self, bundle): return None
         def show_analysis(self, flow, order): return None
         def show_data_flow(self, result): return None
+        def show_error(self, message): return None
 
     class C(AbstractGraphController):
         def open_file(self, path): return None
