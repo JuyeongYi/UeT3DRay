@@ -113,15 +113,23 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             role_summary=summary,
             role_category=category,
         )
-        # ContainedGraph 자식 발견 → 재귀로 subgraph 부착
-        for child in obj.children:
-            if t.is_graph_class(child.cls):
-                node.subgraph = self._interpret_objects(
-                    child.children,
-                    label=f"{node.name}/{child.name or 'graph'}",
-                    parent_node=node.name,
-                )
-                break
+        # ContainedGraph 자식 전부 수집 — 첫 개는 subgraph, 나머지는 extra_subgraphs (C-A1)
+        graph_children = [c for c in obj.children if t.is_graph_class(c.cls)]
+        for i, child in enumerate(graph_children):
+            sub = self._interpret_objects(
+                child.children,
+                label=f"{node.name}/{child.name or 'graph'}",
+                parent_node=node.name,
+            )
+            if i == 0:
+                node.subgraph = sub
+            else:
+                node.extra_subgraphs.append(sub)
+        if len(graph_children) > 1:
+            g.warnings.append(
+                f"노드 '{node.name}'에 RigVMGraph 자식 {len(graph_children)}개 — "
+                f"첫 개는 subgraph, 나머지 {len(graph_children) - 1}개는 extra_subgraphs"
+            )
         g.nodes.append(node)
         if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
             self._add_variable_ref(node, g)
