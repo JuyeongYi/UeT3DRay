@@ -15,6 +15,7 @@ def test_controller_is_abstract():
 def test_concrete_subclasses_instantiable():
     class V(AbstractGraphView):
         def show_graph(self, graph): return None
+        def show_analyses(self, bundle): return None
         def show_analysis(self, flow, order): return None
         def show_data_flow(self, result): return None
 
