@@ -10,6 +10,7 @@ NODE_CLASS_SUFFIXES = (
 )
 LINK_CLASS_SUFFIX = "RigVMLink"
 PIN_CLASS_SUFFIX = "RigVMPin"
+GRAPH_CLASS_SUFFIX = "RigVMGraph"
 EXECUTE_CPP_TYPE = "FRigVMExecuteContext"
 
 
@@ -27,6 +28,10 @@ def is_link_class(class_path: str | None) -> bool:
 
 def is_pin_class(class_path: str | None) -> bool:
     return bool(class_path) and _suffix(class_path) == PIN_CLASS_SUFFIX
+
+
+def is_graph_class(class_path: str | None) -> bool:
+    return bool(class_path) and _suffix(class_path) == GRAPH_CLASS_SUFFIX
 
 
 def is_execution_cpp_type(cpp_type: str | None) -> bool:

@@ -15,3 +15,15 @@ def test_link_class_detection():
 def test_execution_pin_by_cpp_type():
     assert t.is_execution_cpp_type("FRigVMExecuteContext")
     assert not t.is_execution_cpp_type("double")
+
+
+def test_is_graph_class_true():
+    assert t.is_graph_class("/Script/RigVMDeveloper.RigVMGraph") is True
+
+
+def test_is_graph_class_false_for_node():
+    assert t.is_graph_class("/Script/RigVMDeveloper.RigVMUnitNode") is False
+
+
+def test_is_graph_class_false_for_none():
+    assert t.is_graph_class(None) is False
