@@ -27,3 +27,20 @@ def test_pin_is_execution_defaults_false():
 
 def test_node_kind_defaults_to_node():
     assert Node(name="N", cls="X").kind == "node"
+
+
+def test_node_meta_fields_default_none():
+    n = Node(name="X", cls=None)
+    assert n.display_name is None
+    assert n.role_summary is None
+    assert n.role_category is None
+
+
+def test_node_meta_fields_accept_value():
+    n = Node(name="X", cls=None,
+             display_name="Begin Execution",
+             role_summary="(no args)",
+             role_category="Execution")
+    assert n.display_name == "Begin Execution"
+    assert n.role_summary == "(no args)"
+    assert n.role_category == "Execution"

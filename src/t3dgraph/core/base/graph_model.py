@@ -24,6 +24,9 @@ class Node:
     raw: dict[str, Any] = field(default_factory=dict)
     is_generic: bool = False
     kind: str = "node"          # node | loop | sequence | function
+    display_name: str | None = None
+    role_summary: str | None = None
+    role_category: str | None = None
 
 
 @dataclass
