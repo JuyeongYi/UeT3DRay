@@ -108,12 +108,12 @@ class DataFlowPanel(NavigablePanel):
     def shown_node_names(self) -> set[str]:
         return set(self._items.keys())
 
-    def highlight_node(self, node: str | None) -> None:
-        items = self._items.get(node) if node else None
-        if items:
-            self._tree.setCurrentItem(items[0])
-        else:
-            self._tree.clearSelection()
+    def _lookup_item(self, name: str):
+        items = self._items.get(name)
+        return items[0] if items else None
+
+    def _clear_highlight(self) -> None:
+        self._tree.clearSelection()
 
     def highlighted_node(self) -> str | None:
         item = self._tree.currentItem()

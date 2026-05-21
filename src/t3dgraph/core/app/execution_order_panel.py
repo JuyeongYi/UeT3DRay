@@ -58,12 +58,11 @@ class ExecutionOrderPanel(NavigablePanel):
     def activate_row(self, row: int) -> None:
         self._on_activated(self._list.item(row))
 
-    def highlight_node(self, node: str | None) -> None:
-        item = self._rows.get(node) if node else None
-        if item is not None:
-            self._list.setCurrentItem(item)
-        else:
-            self._list.clearSelection()
+    def _lookup_item(self, name: str):
+        return self._rows.get(name)
+
+    def _clear_highlight(self) -> None:
+        self._list.clearSelection()
 
     def highlighted_node(self) -> str | None:
         item = self._list.currentItem()
