@@ -58,13 +58,26 @@ def _build_pin(obj: T3DObject) -> Pin:
 
 class RigVMGraphInterpreter(AbstractGraphInterpreter):
     def interpret(self, doc: T3DDocument) -> GraphModel:
-        g = GraphModel()
-        for obj in doc.objects:
+        return self._interpret_objects(doc.objects, label=None, parent_node=None)
+
+    def _interpret_objects(
+        self,
+        objects: list[T3DObject],
+        *,
+        label: str | None,
+        parent_node: str | None,
+    ) -> GraphModel:
+        g = GraphModel(label=label, parent_node=parent_node)
+        for obj in objects:
             if t.is_link_class(obj.cls):
                 self._add_link(obj, g)
             elif t.is_node_class(obj.cls):
                 self._add_node(obj, g)
             elif obj.cls is None:
+                continue
+            elif t.is_graph_class(obj.cls):
+                # 최상위에 RigVMGraph가 나타나면 그 자식을 그대로 풀어 처리
+                # (보통 ContainedGraph는 _add_node 내에서 처리되므로 여기 도달 드물다)
                 continue
             else:
                 self._add_generic(obj, g)
@@ -95,6 +108,15 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             role_summary=summary,
             role_category=category,
         )
+        # ContainedGraph 자식 발견 → 재귀로 subgraph 부착
+        for child in obj.children:
+            if t.is_graph_class(child.cls):
+                node.subgraph = self._interpret_objects(
+                    child.children,
+                    label=f"{node.name}/{child.name or 'graph'}",
+                    parent_node=node.name,
+                )
+                break
         g.nodes.append(node)
         if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
             self._add_variable_ref(node, g)
