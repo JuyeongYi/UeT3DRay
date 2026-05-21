@@ -6,9 +6,7 @@ from ..registry import default_registry
 from ..t3d.document import parse_document
 from ..t3d.objects import T3DParseError
 from ..t3d.encoding import read_t3d_text
-from ..analysis.flow import analyze_flow
-from ..analysis.execution_order import compute_execution_order
-from ..analysis.data_flow import analyze_data_flow
+from ..analysis.bundle import run as run_analyses
 from .contracts import AbstractGraphController, AbstractGraphView
 
 
@@ -45,13 +43,9 @@ class AppController(AbstractGraphController):
             # MainWindow는 open_graph 내부에서 분석/데이터플로까지 수행 (Slice C+D).
             open_graph(graph, label=p.name)
         else:
-            # 레거시 뷰 폴백 — 분석을 명시적으로 호출.
+            # 레거시 뷰 폴백 — bundle.run 단일 출처.
             self.view.show_graph(graph)
-            flow = analyze_flow(graph)
-            order = compute_execution_order(graph, flow)
-            data_flow = analyze_data_flow(graph)
-            self.view.show_analysis(flow, order)
-            self.view.show_data_flow(data_flow)
+            self.view.show_analyses(run_analyses(graph))
 
     def _fail(self, message: str) -> None:
         show_error = getattr(self.view, "show_error", None)
