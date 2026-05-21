@@ -93,6 +93,11 @@ class NodeItem(QGraphicsRectItem):
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
 
+        if node.subgraph is not None:
+            chev = QGraphicsSimpleTextItem("▶", self)
+            chev.setBrush(QBrush(QColor(200, 200, 120)))
+            chev.setPos(NODE_WIDTH - 16, 5)
+
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
         for i, row in enumerate(rows):
