@@ -41,6 +41,20 @@
 | FEAT-13 | stdin/stdout 파이프 모드 — `-` 인자 + `cat ... | t3dgraph ...`. git 객체와 직접 결합. |
 | (FEAT-7 중복) | dataflow-diff — 이미 batch ⑦ θ-2로 발주됨. |
 
+### improver Slice η 리뷰 findings (2026-05-22, master f4d1913) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **η-A1** | Backspace가 `Qt.ApplicationShortcut`로 등록 — 텍스트 입력 위젯에서도 가로채 사용자 데이터 손실. `Qt.WindowShortcut`로 좁히거나 슬롯에서 `focusWidget()`이 QLineEdit/QTextEdit이면 무시. |
+| η-A2 | 탭 닫기 후 `_tab_bar.currentIndex` ↔ `graph_stack._cur_root` 동기화 누락 — close 직후 명시 `setCurrentIndex` 호출. |
+| η-A3 | `Alt+Up` 동작이 `Alt+Left`와 동일(`jump_to(len-2)` = `pop()`) — `jump_to(0)` "루트로"로 의미 차이 또는 제거. |
+| η-B1 | `_build_shortcuts` inline import → 상단으로. |
+| η-B2 | `blockSignals` 보일러플레이트 → `QSignalBlocker` RAII. |
+| η-B3 | `GraphStack._cur_root` private 우회 → `current_root_index()` getter 노출. |
+| FEAT-14 | 탭 컨텍스트 메뉴 — 이 탭 닫기 / 다른 탭 닫기 / 모두 닫기 / 경로 복사. |
+| FEAT-15 | 단일 탭 시 탭바 자동 숨김 — `setVisible(count > 1)`. |
+| FEAT-16 | 최근 파일 목록 메뉴 — 4~8개. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
