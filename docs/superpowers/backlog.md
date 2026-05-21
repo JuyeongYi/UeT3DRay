@@ -113,6 +113,22 @@
 | FEAT-27 | External-ref 네비 — inspector 클릭 시 해당 파일 새 탭으로 + 노드 이동. FEAT-3 + FEAT-10 + F5 합성. |
 | FEAT-28 | CLI `t3dgraph resolve <folder>` — 이름→파일/충돌/미해결 JSON dump. RigVM CI 감사. |
 
+### improver Slice λ 리뷰 findings (2026-05-22, master f3e708a) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **λ-A1** | 다른 탭 깊은 위치 클릭 시 depth 점프 누락 — `_on_minimap_click` 분기에서 setCurrentIndex만 되고 jump_to 안 됨. 사용자 2회 클릭 필요. 단일 경로로 통합. |
+| λ-A2 | 멀티 ContainedGraph 자식이 minimap에 미표시 — `extra_subgraphs`(C-A1으로 보존) 미렌더. 모델은 다중 보존하는데 UI 절반. |
+| λ-A3 | minimap `_render_children` 재귀 깊이 cap 부재 — C-A2/dependency_tree와 같은 결. defensive cap 통일. |
+| λ-B1 | `stack._cur_root`/`_paths` private access — η-B3 `current_root_index()` getter 부재가 실제 비용으로 증명. |
+| λ-B2 | `_click_for_test` 3번째 프로덕션 노출 (η-B2 패턴 BreadcrumbBar·NodeItem 이어) — `tests/helpers.py` 분리 시기. |
+| λ-B3 | `NavigablePanel` 상속 의문 — `navigate_requested` 미사용, 자체 `location_clicked` 사용. 상속 끊거나 베이스 일반화. |
+| FEAT-29 | minimap 노드 검색·필터 — 트리 상단 검색 박스 + 하이라이트. |
+| FEAT-30 | minimap 우클릭 컨텍스트 메뉴 — 새 탭으로/북마크/경로 복사. AssetResolver 연동 시 "external-ref 네비게이션"도. |
+| FEAT-31 | 형제 서브그래프 빠른 점프 단축키 — `Alt+Right`/`Alt+]` 등. FEAT-9 연장. |
+
+**메모 (improver 권고):** B1·B2는 누적 신호들의 일관 재확인. 정리 슬라이스 범위 — `cli.py` + `main_window.py` + `panels` 한 묶음.
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
