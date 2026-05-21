@@ -55,3 +55,23 @@ def test_set_expand_subpins_and_fan_in():
     vs.set_fan_in_highlight(True)
     assert vs.expand_subpins is True
     assert vs.fan_in_highlight is True
+
+
+def test_pin_expand_toggle_round_trip():
+    vs = ViewState()
+    path = "MyNode.MyPin"
+    assert vs.is_pin_expanded(path) is False
+    vs.toggle_pin_expanded(path)
+    assert vs.is_pin_expanded(path) is True
+    vs.toggle_pin_expanded(path)
+    assert vs.is_pin_expanded(path) is False
+
+
+def test_expand_all_and_collapse_all():
+    vs = ViewState()
+    vs.expand_all_pins(["N.A", "N.B", "N.A.X"])
+    assert vs.is_pin_expanded("N.A") is True
+    assert vs.is_pin_expanded("N.B") is True
+    assert vs.is_pin_expanded("N.A.X") is True
+    vs.collapse_all_pins()
+    assert vs.is_pin_expanded("N.A") is False
