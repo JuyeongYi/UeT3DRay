@@ -85,6 +85,20 @@
 
 **메모 (improver 권고):** θ2-B1·B2·B3는 ζ-B 시리즈와 정확히 같은 라인 — 정리 batch에서 한 번에 처리 (parent parser + 디스패치 테이블 + 상단 import 규약). 패턴 일소형 슬라이스 후보.
 
+### improver Slice ι 리뷰 findings (2026-05-22, master ad26139) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **ι-A1** | **QuotedString 직렬화 escape 누락** — `f'"{v.text}"'`가 내부 `"`·`\\` 그대로. round-trip 시 의미 변경 위험. **round-trip 정확성 1순위 가드레일.** |
+| ι-A2 | `Class={cls or "?"}` fallback — cls=None 시 `?` 토큰이 invalid t3d. `raise ValueError` 권장 (원본 doc 단계 막기). |
+| ι-A3 | `_cmd_serialize`의 `--lenient` 의미 없음 — 파싱 실패 시 빈 stdout silent 손실. 옵션 제거 또는 exit 1 명시 계약. |
+| ι-B1 | inline imports 3번째 재발 (cli.py) — η-B1·θ2-B1에 이어. 정리 batch 1순위 신호 강화. |
+| ι-B2 | subcommand 추가 4곳 동시 수정 — θ2-B3 dispatch 테이블 4번째 증명. `COMMANDS` 테이블 도입 비용이 또 한 번의 수정 비용에 도달. |
+| ι-B3 | 3-space indent 매직 리터럴 — `INDENT = '   '` 모듈 상수 또는 `indent_str` 매개변수. |
+| FEAT-23 | Round-trip 등가성(idempotence) 프로퍼티 테스트 — `parse(serialize(parse(src))).objects == parse(src).objects`. ι-A1/A2 자동 감지. |
+| FEAT-24 | `serialize --output PATH` — Windows 리다이렉트 인코딩 회피. |
+| FEAT-25 | `t3dgraph format` (또는 `serialize --canonical`) — 속성 정렬·들여쓰기 정규화. PR diff 노이즈 감소. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
