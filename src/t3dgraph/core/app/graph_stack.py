@@ -30,6 +30,9 @@ class GraphStack:
         self._cur_root = len(self._roots) - 1
 
     def push(self, g: GraphModel) -> None:
+        # 빈 스택일 때는 새 루트로 자동 승격한다(편의 폴백). 호출자가 첫
+        # 그래프를 push로 진입시킨 의도를 보존 — 드릴다운 의도였다 해도
+        # 데이터 손실 없이 첫 화면이 그려진다.
         if self._cur_root < 0:
             self.open_root(g)
             return

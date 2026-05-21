@@ -72,12 +72,12 @@ class NodeItem(QGraphicsRectItem):
         expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
     ):
-        self.node = node
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 connected_only=connected_only,
                                 expanded=expanded_paths)
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, NODE_WIDTH, height))
+        self.node = node
         self.bus = _NodeItemBus()
         x, y = node.position if node.position else (0.0, 0.0)
         self.setPos(x, y)
@@ -120,11 +120,23 @@ class NodeItem(QGraphicsRectItem):
         if 0 <= row_index < len(self._row_paths):
             self.bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
+    def _try_emit_enter_subgraph(self, y: float) -> bool:
+        """헤더 영역에서 subgraph 보유 노드일 때만 enter_subgraph_requested 발사.
+
+        리턴: 발사했으면 True (Qt 이벤트를 accept해야 함), 아니면 False.
+
+        subgraph가 없는 노드는 시그널을 발사하지 않는다 — 수신측 noop이라도
+        사용자가 무반응을 인지하기보다 호출 자체가 없는 편이 명확.
+        """
+        if y < HEADER_HEIGHT and self.node.subgraph is not None:
+            self.bus.enter_subgraph_requested.emit(self.node.name)
+            return True
+        return False
+
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
         y = event.pos().y()
-        # 헤더 영역 더블클릭 → 서브그래프 진입 시그널 (Slice C, F5/F6)
-        if y < HEADER_HEIGHT:
-            self.bus.enter_subgraph_requested.emit(self.node.name)
+        # 헤더 영역 (subgraph 보유) 더블클릭 → 서브그래프 진입 (Slice C, F5/F6, M3 가드)
+        if self._try_emit_enter_subgraph(y):
             event.accept()
             return
         # 행 영역 더블클릭 → 핀 expand 토글 (Slice A, F9)

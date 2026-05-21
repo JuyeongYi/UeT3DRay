@@ -34,6 +34,32 @@ def test_double_click_header_emits_enter_subgraph(qapp):
     assert received == ["P"]
 
 
+def test_header_double_click_noop_when_no_subgraph(qapp):
+    """M3: subgraph 없는 노드의 헤더 더블클릭은 시그널을 발사하지 않는다."""
+    g = GraphModel(nodes=[Node(name="X", cls=None)])   # subgraph 없음
+    scene = GraphScene()
+    scene.populate(g)
+    received: list[str] = []
+    scene.enter_subgraph_requested.connect(received.append)
+    item = scene.node_item("X")
+    emitted = item._try_emit_enter_subgraph(y=5.0)      # 헤더 영역
+    assert emitted is False
+    assert received == []
+
+
+def test_header_double_click_emits_when_subgraph_present(qapp):
+    """M3 대칭 케이스: subgraph 보유 노드의 헤더 더블클릭은 emit."""
+    g = _graph_with_subgraph()
+    scene = GraphScene()
+    scene.populate(g)
+    received: list[str] = []
+    scene.enter_subgraph_requested.connect(received.append)
+    item = scene.node_item("P")
+    emitted = item._try_emit_enter_subgraph(y=5.0)
+    assert emitted is True
+    assert received == ["P"]
+
+
 def test_enter_and_exit_subgraph(qapp):
     g = _graph_with_subgraph()
     win = MainWindow()

@@ -224,22 +224,24 @@ class MainWindow(QMainWindow):
         if current is None:
             return
         self.graph = current
-        self.scene.populate(current, view_state=self.view_state, flow=None)
+        # 분석을 먼저 수행해 populate에 flow를 넘긴다.
+        # 그래야 fan_in_highlight 같이 flow에 의존하는 렌더가 서브그래프 진입
+        # 후에도 첫 프레임부터 올바르게 그려진다.
+        from ..analysis.flow import analyze_flow
+        from ..analysis.execution_order import compute_execution_order
+        from ..analysis.data_flow import analyze_data_flow
+        flow = analyze_flow(current)
+        order = compute_execution_order(current, flow)
+        data_flow = analyze_data_flow(current)
+        self.scene.populate(current, view_state=self.view_state, flow=flow)
         self.node_filter.set_graph(current)
         self.inspector.show_node(None, current)
         self.view.fit()
         self.breadcrumb.set_segments(self.graph_stack.segments())
         self.statusBar().showMessage(
             f"노드 {len(current.nodes)} · 링크 {len(current.links)}", 5000)
-        # 분석 — 새 그래프(루트 or 서브그래프) 진입마다 갱신.
-        try:
-            from ..analysis.flow import analyze_flow
-            from ..analysis.execution_order import compute_execution_order
-            flow = analyze_flow(current)
-            order = compute_execution_order(current, flow)
-            self.show_analysis(flow, order)
-        except Exception:
-            pass
+        self.show_analysis(flow, order)
+        self.show_data_flow(data_flow)
 
     def show_graph(self, graph: GraphModel) -> None:
         """레거시 진입점 — 새 루트로 push."""

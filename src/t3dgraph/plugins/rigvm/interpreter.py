@@ -76,8 +76,13 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             elif obj.cls is None:
                 continue
             elif t.is_graph_class(obj.cls):
-                # 최상위에 RigVMGraph가 나타나면 그 자식을 그대로 풀어 처리
-                # (보통 ContainedGraph는 _add_node 내에서 처리되므로 여기 도달 드물다)
+                # 최상위에 RigVMGraph가 직접 나타나는 케이스 — 일반적으로
+                # ContainedGraph는 _add_node 안에서 처리되므로 여기 도달은 드물다.
+                # 발생 시 자식 노드가 소실되므로 경고를 남긴다.
+                g.warnings.append(
+                    f"최상위에 RigVMGraph 객체 '{obj.name or '?'}' 발견 — "
+                    f"자식 {len(obj.children)}개가 추출되지 않음"
+                )
                 continue
             else:
                 self._add_generic(obj, g)
