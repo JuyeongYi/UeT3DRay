@@ -38,7 +38,7 @@ class NodeItem(QGraphicsRectItem):
                               else QColor(90, 60, 60)))
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
 
-        title = QGraphicsSimpleTextItem(node.name or "?", self)
+        title = QGraphicsSimpleTextItem(node.display_name or node.name or "?", self)
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
 
