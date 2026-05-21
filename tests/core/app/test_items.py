@@ -48,8 +48,8 @@ def test_subpins_rendered_when_expanded(qtbot):
     sub = Pin(name="X", cpp_type="double", direction="Input")
     parent_pin = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
     node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent_pin])
-    flat = NodeItem(node, show_subpins=True)
-    deep = NodeItem(node, show_subpins=False)
+    flat = NodeItem(node, expanded_paths=frozenset({"N.T"}))
+    deep = NodeItem(node, expanded_paths=frozenset())
     assert flat.rect().height() == HEADER_HEIGHT + 2 * ROW_HEIGHT
     assert deep.rect().height() == HEADER_HEIGHT + 1 * ROW_HEIGHT
 
@@ -85,7 +85,7 @@ def test_pin_anchor_resolves_subpin_when_expanded(qtbot):
     sub = Pin(name="X", cpp_type="double", direction="Input")
     parent = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
     node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent])
-    item = NodeItem(node, show_subpins=True)
+    item = NodeItem(node, expanded_paths=frozenset({"N.T"}))
     sub_anchor = item.pin_anchor("T.X", "Input")
     parent_anchor = item.pin_anchor("T", "Input")
     assert sub_anchor.y() != parent_anchor.y()
@@ -95,5 +95,5 @@ def test_pin_anchor_subpin_falls_back_to_parent_when_collapsed(qtbot):
     sub = Pin(name="X", cpp_type="double", direction="Input")
     parent = Pin(name="T", cpp_type="FVector", direction="Input", subpins=[sub])
     node = Node(name="N", cls="X", position=(0.0, 0.0), pins=[parent])
-    item = NodeItem(node, show_subpins=False)
+    item = NodeItem(node, expanded_paths=frozenset())
     assert item.pin_anchor("T.X", "Input").y() == item.pin_anchor("T", "Input").y()
