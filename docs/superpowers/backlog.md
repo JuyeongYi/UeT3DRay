@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`). Spec 1(μ·ν·ξ) + Spec 2(τ·π·φ·σ·ρ) 8 슬라이스 모두 머지, 430 tests passing. F14를 제외한 사용자 피드백 10/11 처리 완료. 본 사이클 improver findings 53건 누적 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7 + φ 7 + σ·ρ 8).
+상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`) + **batch ⑩ 1차 완료** (`906decc`, 452 tests). batch ⑩ α·χ·ο·υ 머지, ω·ψ 디스패치 중. 누적 improver findings 60건 (batch ⑨ 53 + batch ⑩ 7).
 
 ---
 
@@ -250,6 +250,22 @@ batch ⑨ Spec 2 2차 (F17 array sort + F20 resolver + π cleanup).
 | FEAT-47 (σ-C1) | inspector에서 array 원본 직렬화 순서 토글 — F17 정렬 결과 vs T3D 원본 순서 비교. UE quirk 디버깅·재현 보고용. |
 
 **메모 (improver 권고):** **ρ-A1**이 최우선 — F20 fix가 silent miss될 수 있어 정규식 보강은 비용 대비 효과 가장 큼. **ρ-A3**와 묶어 같은 핫픽스 슬라이스에 처리하면 자연. **ρ-B1·B2** + 다음 정리 슬라이스(pin walk 통합)에 contracts 정리 동승 가능. **σ-A1**은 사용자가 다른 UE 프로젝트 샘플 가져올 때 즉시 부딪힐 후속.
+
+### improver batch ⑩ α·χ·ο·υ 리뷰 findings (2026-06-01, master 906decc) — 미처리
+
+batch ⑩ 1차 4 슬라이스. χ는 깨끗하게 머지(findings 0).
+
+| ID | 내용 |
+| --- | --- |
+| α-A1 | `_walk_struct_find_key` 재귀에 cycle/depth 가드 부재 — Struct self-ref나 깊은 nesting에서 stack overflow 가능. `max_depth=8` 같은 defensive cap. |
+| **α-A2** | bare path 폴백 제거로 ref_path 정보 손실 — 이전 `m else ref_path`로 plain string도 처리했는데 새 코드는 `None` 반환. 결과적으로 `external_refs_unresolved`에 `(header parse failed)`로만 묶여 어떤 ref가 실패했는지 식별 불가. 호출부에서 None일 때 ref_path 그대로 unresolved 목록에 넣어 디버깅성 회복. **F20 진단 회귀 1순위**. |
+| ο-A2 | 팔레트 로드 실패 다이얼로그가 `__init__` 중 호출 — 메인 윈도우 `show()` 전이라 부유 상태. `QTimer.singleShot(0, ...)` 또는 `showEvent`로 지연. |
+| α-B1 | Struct walker 헬퍼(`_walk_struct`/`_walk_struct_find_key`)가 interpreter 안 — generic 유틸이라 `core/t3d/values.py::Struct.find_path(*keys)`/`Struct.find_first(key)`로 끌어올리면 재사용성·테스트 분리. |
+| ο-B1 | `PinColorTable.load`·`_load_bundled_defaults` 파싱 로직 5줄 복붙 — `_from_toml_bytes(bytes)` 헬퍼로 추출. |
+| υ-B1 | `QSignalBlocker` 수동 `del` 패턴 어색 — PySide6 6.4+에서 `with QSignalBlocker(action):` 사용 가능. 예외 안전. |
+| FEAT-48 (α-C1) | `external_refs_unresolved` 도크 — cls·ref_path·reason 컬럼 + "이 ref를 위한 폴더 지정" 액션. α가 reason을 3가지로 명확히 구분해 데이터 충실. ρ-C1(FEAT-46) 후속 통합. |
+
+**메모 (improver 권고):** **α-A2** F20 진단 디버깅성 회귀 — 작은 패치(ref_path 보존 한 줄)로 회복 가능. ω·ψ 머지 후 또는 별도 hotfix로 즉시 처리 권장. α-A1·α-B1은 정리 슬라이스에 동승(pin walk 통합 ψ와 같은 batch). ο-A2(다이얼로그 타이밍)·υ-B1(QSignalBlocker context manager)는 다음 정리 batch 후보.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
