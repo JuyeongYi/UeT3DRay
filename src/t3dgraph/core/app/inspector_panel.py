@@ -1,7 +1,10 @@
 """속성 인스펙터 — 선택 노드의 핀·기본값·연결됨·변경됨."""
 from __future__ import annotations
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import (
+    QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QHeaderView,
+)
 from ..base.graph_model import GraphModel, Node, Pin
 from .pin_status import is_changed_from_default
 from .navigable_panel import NavigablePanel
@@ -35,9 +38,17 @@ class InspectorPanel(NavigablePanel):
         self._tree = QTreeWidget()
         self._tree.setColumnCount(5)
         self._tree.setHeaderLabels(["핀", "타입", "방향", "기본값", "상태"])
+        header = self._tree.header()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(False)
+        self._col_widths = (140, 160, 70, 120, 90)
+        for i, w in enumerate(self._col_widths):
+            self._tree.setColumnWidth(i, w)
+        self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         layout.addWidget(self._title)
         layout.addWidget(self._tree)
         self._tree.itemActivated.connect(self._on_activated)
+        header.sectionResized.connect(self._on_section_resized)
         self._items: dict[str, QTreeWidgetItem] = {}
 
     def show_node(self, node: Node | None, graph: GraphModel) -> None:
@@ -66,9 +77,10 @@ class InspectorPanel(NavigablePanel):
         is_chg = is_changed_from_default(pin)
         status = " · ".join(
             s for s in ("연결됨" if is_conn else "", "변경됨(추정)" if is_chg else "") if s)
-        item = QTreeWidgetItem(
-            [pin.name, pin.cpp_type or "", pin.direction or "",
-             pin.default_value or "", status])
+        texts = [pin.name, pin.cpp_type or "", pin.direction or "",
+                 pin.default_value or "", status]
+        item = QTreeWidgetItem(texts)
+        self._apply_truncation_tooltips(item, texts)
         if is_conn:
             peer = _peer_of(full, graph)
             if peer:
@@ -77,6 +89,28 @@ class InspectorPanel(NavigablePanel):
         self._items[full] = item
         for sub in pin.subpins:
             self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
+
+    _CELL_PAD_PX = 12  # 셀 좌우 패딩 추정치
+
+    def _apply_truncation_tooltips(self, item: QTreeWidgetItem, texts: list[str]) -> None:
+        """셀 텍스트가 라이브 컬럼 폭을 초과하면 ToolTipRole에 풀 텍스트를 박는다.
+
+        `self._tree.columnWidth(i)` 로 현재 폭을 읽어 Interactive resize 반영.
+        미초과 컬럼은 빈 문자열로 명시 초기화(item 재사용 대비 idempotent).
+        """
+        fm = QFontMetrics(self._tree.font())
+        for i, text in enumerate(texts):
+            live_w = self._tree.columnWidth(i)
+            if text and fm.horizontalAdvance(text) > live_w - self._CELL_PAD_PX:
+                item.setToolTip(i, text)
+            else:
+                item.setToolTip(i, "")
+
+    def _on_section_resized(self, _logical: int, _old: int, _new: int) -> None:
+        """컬럼 폭 변경 시 모든 item 툴팁 재평가."""
+        for item in self._items.values():
+            texts = [item.text(i) for i in range(self._tree.columnCount())]
+            self._apply_truncation_tooltips(item, texts)
 
     def _on_activated(self, item: QTreeWidgetItem, _column: int) -> None:
         peer = item.data(0, _PEER_ROLE)
