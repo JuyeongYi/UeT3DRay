@@ -1,6 +1,7 @@
 """앱 컨트롤러 — 파일 열기 → Model 파이프라인 → view 렌더."""
 from __future__ import annotations
 import importlib
+import inspect
 from pathlib import Path
 from ..registry import default_registry
 from ..t3d.document import parse_document
@@ -38,7 +39,6 @@ class AppController(AbstractGraphController):
             self._fail(str(e))
             return
         resolver = getattr(self.view, "_resolver", None)
-        import inspect
         try:
             sig = inspect.signature(plugin.interpreter_factory)
             if "resolver" in sig.parameters:
