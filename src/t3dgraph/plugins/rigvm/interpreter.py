@@ -282,34 +282,10 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         header = obj.properties.get("ReferencedFunctionHeader")
         if not isinstance(header, Struct):
             return None
-        known = self._walk_struct(header, ("LibraryPointer", "LibraryNodePath"))
+        known = header.find_path("LibraryPointer", "LibraryNodePath")
         if known is not None:
             return known
-        return self._walk_struct_find_key(header, "LibraryNodePath")
-
-    def _walk_struct(self, value, path: tuple) -> str | None:
-        cur = value
-        for key in path:
-            if not isinstance(cur, Struct):
-                return None
-            cur = next((v for k, v in cur.items if k == key), None)
-            if cur is None:
-                return None
-        return _text(cur)
-
-    def _walk_struct_find_key(self, value, target_key: str) -> str | None:
-        if not isinstance(value, Struct):
-            return None
-        for k, v in value.items:
-            if k == target_key:
-                text = _text(v)
-                if text:
-                    return text
-            if isinstance(v, Struct):
-                found = self._walk_struct_find_key(v, target_key)
-                if found:
-                    return found
-        return None
+        return header.find_first("LibraryNodePath")
 
     def _add_generic(self, obj: T3DObject, g: GraphModel) -> None:
         g.warnings.append(f"알 수 없는 클래스 '{obj.cls}' — 제네릭 노드로 폴백")
