@@ -310,6 +310,19 @@ batch ⑪ h5 (ω-A2 silent reset surface).
 
 **메모:** A1·A2·B1 모두 batch ⑫ c2 슬라이스에 흡수(`.bak` 통일 + ts 회전). FEAT-51은 향후 FEAT 통합 batch.
 
+### improver batch ⑫ c1 리뷰 findings (2026-06-02, master c3e9c1f) — 미처리
+
+batch ⑫ c1 (boundary public API: ⑪-A1·A2·A3).
+
+| ID | 내용 |
+| --- | --- |
+| ⑫c1-A1 | `_extract_target_path` 한-사이클 별칭 제거 스케줄 미명시 — backlog cleanup 트래커 등재. batch ⑬에서 제거 검토. |
+| **⑫c1-A2** | `resolve_function_reference` tuple 반환 silent backward break — 외부 사용자/플러그인 없는 현재 영향 0이나 spec/CHANGELOG 명시 + DeprecationWarning 또는 별도 메서드(`resolve_with_reason`) 우회 고려. ψ-A1과 같은 결. |
+| ⑫c1-B1 | `LayoutOverrides.graph_keys()` live dict view 반환 — 호출 중 mutation 시 RuntimeError. docstring 명시 또는 `tuple(...)` 스냅샷 (현재 호출부는 `set(...)` 즉시 materialize라 안전). |
+| FEAT-52 (⑫c1-C1) | `external_refs_unresolved`를 `list[UnresolvedRef]` 데이터클래스로 — `(path, reason, source_obj)`. α-C1(FEAT-48)·FEAT-46 unresolved 도크 비용 절감. |
+
+**메모:** ⑫c1-A1 (alias 제거 일정)을 batch ⑬ 트래커에 박음. ⑫c1-A2는 외부 사용자 도입 직전까지 deferred 가능. ⑫c1-B1은 docstring 한 줄로 즉시 해소. FEAT-52는 도크 통합 시 자연.
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
