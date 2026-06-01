@@ -1,6 +1,7 @@
 """ω/h1 — PersistentState 단위 (라운드트립·폴백·atomic·v2 multi-key)."""
 from __future__ import annotations
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -62,18 +63,18 @@ def test_load_corrupted_json_returns_empty() -> None:
     state, error = load_state("/test/x.t3d.txt")
     assert state == PersistentState()
     assert error is not None and "JSON" in error
-    assert p.with_suffix(p.suffix + ".bak").exists()
+    assert len(list(p.parent.glob(p.stem + p.suffix + ".bak.*"))) == 1
 
 
 def test_future_schema_version_returns_empty() -> None:
-    """미래 버전은 사용자 데이터 손실 차단을 위해 빈 상태."""
+    """미래 버전도 .bak.{ts} 백업 후 빈 상태."""
     p = _state_path("/test/x.t3d.txt")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text('{"schema_version": 999}', encoding="utf-8")
     state, error = load_state("/test/x.t3d.txt")
     assert state == PersistentState()
     assert error is not None and "schema_version" in error
-    assert not p.with_suffix(p.suffix + ".bak").exists()
+    assert len(list(p.parent.glob(p.stem + p.suffix + ".bak.*"))) == 1
 
 
 def test_load_state_returns_tuple_normal() -> None:
@@ -197,3 +198,41 @@ def test_migrated_flag_excluded_from_equality() -> None:
     b = PersistentState()
     b.migrated_from_v1 = True
     assert a == b
+
+
+def test_schema_mismatch_creates_bak() -> None:
+    """미래 schema_version → .bak.{ts} 파일 생성."""
+    p = _state_path("/test/future.t3d.txt")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text('{"schema_version": 999, "per_graph": {}}', encoding="utf-8")
+    load_state("/test/future.t3d.txt")
+    baks = list(p.parent.glob(p.stem + p.suffix + ".bak.*"))
+    assert len(baks) == 1
+    assert baks[0].name.split(".bak.")[1].isdigit() or "T" in baks[0].name.split(".bak.")[1]
+
+
+def test_structure_error_creates_bak() -> None:
+    """구조 오류(TypeError/ValueError) → .bak.{ts} 파일 생성."""
+    p = _state_path("/test/broken_struct.t3d.txt")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        '{"schema_version": 2, "per_graph": {"k": {"node_positions": "bad"}}}',
+        encoding="utf-8"
+    )
+    state, error = load_state("/test/broken_struct.t3d.txt")
+    assert state == PersistentState()
+    baks = list(p.parent.glob(p.stem + p.suffix + ".bak.*"))
+    assert len(baks) == 1
+
+
+def test_bak_rotation_ts_suffix() -> None:
+    """동일 파일 두 번 손상 로드 시 각각 다른 타임스탬프 .bak.* 생성."""
+    p = _state_path("/test/rotate.t3d.txt")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{ broken1", encoding="utf-8")
+    load_state("/test/rotate.t3d.txt")
+    time.sleep(1.1)
+    p.write_text("{ broken2", encoding="utf-8")
+    load_state("/test/rotate.t3d.txt")
+    baks = list(p.parent.glob(p.stem + p.suffix + ".bak.*"))
+    assert len(baks) == 2, f"baks={[b.name for b in baks]}"

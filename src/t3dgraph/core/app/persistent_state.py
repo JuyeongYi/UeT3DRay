@@ -11,6 +11,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 
@@ -106,6 +107,17 @@ class PersistentState:
         )
 
 
+def _backup_corrupted(p: Path) -> Path | None:
+    """손상·미지원 상태 파일을 .bak.{YYYYMMDDTHHMMSS} 로 이름 변경."""
+    ts = datetime.now().strftime("%Y%m%dT%H%M%S")
+    bak = p.with_suffix(p.suffix + f".bak.{ts}")
+    try:
+        p.replace(bak)
+        return bak
+    except OSError:
+        return None
+
+
 def _state_dir() -> Path:
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
@@ -130,19 +142,20 @@ def load_state(file_path: str) -> tuple[PersistentState, str | None]:
         with p.open("r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError as exc:
-        bak = p.with_suffix(p.suffix + ".bak")
-        try:
-            p.replace(bak)
-        except OSError:
-            pass
-        return PersistentState(), f"JSON 해독 실패 — {bak.name}으로 백업: {exc}"
+        bak = _backup_corrupted(p)
+        bak_name = bak.name if bak else "백업 실패"
+        return PersistentState(), f"JSON 해독 실패 — {bak_name}으로 백업: {exc}"
     version = data.get("schema_version", _SCHEMA_VERSION)
     if version not in (1, _SCHEMA_VERSION):
-        return PersistentState(), f"미지원 schema_version={version} — 무시"
+        bak = _backup_corrupted(p)
+        bak_name = bak.name if bak else "백업 실패"
+        return PersistentState(), f"미지원 schema_version={version} — {bak_name}으로 백업"
     try:
         return PersistentState.from_dict(data), None
     except (KeyError, TypeError, ValueError) as exc:
-        return PersistentState(), f"구조 오류 — 무시: {exc}"
+        bak = _backup_corrupted(p)
+        bak_name = bak.name if bak else "백업 실패"
+        return PersistentState(), f"구조 오류 — {bak_name}으로 백업: {exc}"
 
 
 def save_state(file_path: str, state: PersistentState) -> None:
