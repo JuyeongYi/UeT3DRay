@@ -124,12 +124,10 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         *,
         label: str | None,
         parent_node: str | None,
-        diagnostics: InterpreterDiagnostics | None = None,
+        diagnostics: InterpreterDiagnostics,
         depth: int = 0,
         max_depth: int = 64,
     ) -> GraphModel:
-        if diagnostics is None:
-            diagnostics = InterpreterDiagnostics()
         g = GraphModel(label=label, parent_node=parent_node)
         diagnostics.max_depth_seen = max(diagnostics.max_depth_seen, depth)
         if depth >= max_depth:
