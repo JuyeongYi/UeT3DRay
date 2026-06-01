@@ -25,6 +25,11 @@ def _text(v: Value | None) -> str | None:
     return None
 
 
+def _cls_suffix(obj: T3DObject) -> str | None:
+    """T3DObject.cls의 suffix (마지막 '.' 이후) 반환. None이면 None."""
+    return (obj.cls or "").rsplit(".", 1)[-1] or None
+
+
 def _classify_kind(obj: T3DObject) -> str:
     suffix = (obj.cls or "").rsplit(".", 1)[-1]
     if suffix in ("RigVMCollapseNode", "RigVMFunctionReferenceNode"):
@@ -108,7 +113,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             var_name = var_outputs.get(link.source_path)
             if var_name is None:
                 continue
-            target_pin = self._locate_pin(g, link.target_path)
+            target_pin = g.find_pin(link.target_path)
             if target_pin is not None:
                 target_pin.variable_source = var_name
         # 재귀 — 서브그래프 자체에도 variable_refs/links가 있다
@@ -117,24 +122,6 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 self._annotate_variable_consumers(node.subgraph)
             for extra in node.extra_subgraphs:
                 self._annotate_variable_consumers(extra)
-
-    def _locate_pin(self, g: GraphModel, path: str) -> "Pin | None":
-        """'NodeName.PinName[.SubPin...]' → Pin 객체. 없으면 None."""
-        parts = path.split(".")
-        if not parts:
-            return None
-        node = g.node_by_name(parts[0])
-        if node is None:
-            return None
-        cur_pins = node.pins
-        last = None
-        for name in parts[1:]:
-            pin = next((p for p in cur_pins if p.name == name), None)
-            if pin is None:
-                return None
-            last = pin
-            cur_pins = pin.subpins
-        return last
 
     def _interpret_objects(
         self,
@@ -153,9 +140,8 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 f"interpret 깊이 {depth} >= {max_depth} — 추가 추출 중단 (label={label or '?'})"
             )
             for obj in objects:
-                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=cls_suffix,
+                    name=obj.name or "?", cls=_cls_suffix(obj),
                     reason="depth cap", parent_obj=parent_node))
             return g
         for obj in objects:
@@ -174,15 +160,13 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                     f"최상위에 RigVMGraph 객체 '{obj.name or '?'}' 발견 — "
                     f"자식 {len(obj.children)}개가 추출되지 않음"
                 )
-                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=cls_suffix,
+                    name=obj.name or "?", cls=_cls_suffix(obj),
                     reason="graph at top", parent_obj=parent_node))
                 continue
             else:
-                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=cls_suffix,
+                    name=obj.name or "?", cls=_cls_suffix(obj),
                     reason="unknown class", parent_obj=parent_node))
                 self._add_generic(obj, g)
         known = {n.name for n in g.nodes}
@@ -274,7 +258,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             else:
                 diagnostics.external_refs_unresolved.append(ref_path)
         g.nodes.append(node)
-        suffix = (obj.cls or "").rsplit(".", 1)[-1]
+        suffix = _cls_suffix(obj) or ""
         diagnostics.extracted_per_class[suffix] = (
             diagnostics.extracted_per_class.get(suffix, 0) + 1
         )
