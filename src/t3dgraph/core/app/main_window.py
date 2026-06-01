@@ -18,6 +18,7 @@ from .analysis_panel import AnalysisPanel
 from .execution_order_panel import ExecutionOrderPanel
 from .data_flow_panel import DataFlowPanel
 from .minimap_panel import MinimapPanel
+from .pin_colors import PinColorTable
 
 
 class MainWindow(QMainWindow):
@@ -27,6 +28,10 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
 
         self.view_state = ViewState()
+        try:
+            self.pin_colors: PinColorTable | None = PinColorTable.load()
+        except Exception:
+            self.pin_colors = None
         self.graph: GraphModel | None = None
         self._flow = None
 
@@ -90,6 +95,27 @@ class MainWindow(QMainWindow):
         file_menu.addAction("열기…").triggered.connect(self._on_open)
         file_menu.addAction("에셋 폴더 열기…").triggered.connect(self._on_open_folder)
         file_menu.addAction("종료").triggered.connect(self.close)
+        view_menu = self.menuBar().addMenu("보기")
+        view_menu.addAction("핀 색 팔레트 리셋").triggered.connect(self._on_reset_palette)
+
+    def _on_reset_palette(self) -> None:
+        from PySide6.QtWidgets import QMessageBox
+        ans = QMessageBox.question(
+            self, "팔레트 리셋",
+            "사용자 설정 파일을 번들 디폴트로 덮어씁니다. 계속하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if ans != QMessageBox.Yes:
+            return
+        try:
+            PinColorTable.reset_user_file()
+            self.pin_colors = PinColorTable.load()
+        except Exception as e:
+            self.statusBar().showMessage(f"팔레트 리셋 실패: {e}", 5000)
+            return
+        self._rebuild_scene()
+        self.statusBar().showMessage("핀 색 팔레트를 디폴트로 되돌렸습니다.", 4000)
 
     def _on_open_folder(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -162,7 +188,7 @@ class MainWindow(QMainWindow):
     def _rebuild_scene(self) -> None:
         if self.graph is not None:
             self.scene.populate(self.graph, view_state=self.view_state,
-                                flow=self._flow)
+                                flow=self._flow, pin_colors=self.pin_colors)
 
     def set_view_mode(self, mode_id: str, checked: bool) -> None:
         """안정 식별자로 뷰 모드 토글 — connected_only / fan_in_highlight."""
@@ -300,7 +326,8 @@ class MainWindow(QMainWindow):
         self.graph = current
         from ..analysis.bundle import run as run_analyses
         bundle = run_analyses(current)
-        self.scene.populate(current, view_state=self.view_state, flow=bundle.flow)
+        self.scene.populate(current, view_state=self.view_state, flow=bundle.flow,
+                            pin_colors=self.pin_colors)
         self.node_filter.set_graph(current)
         self.inspector.show_node(None, current)
         self.view.fit()

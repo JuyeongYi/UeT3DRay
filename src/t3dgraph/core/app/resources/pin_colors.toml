@@ -1,0 +1,45 @@
+# t3dgraph 핀 색 팔레트 — UE Blueprint 컨벤션
+# 사용자는 이 파일을 OS 설정 디렉터리로 복사한 사본을 편집한다.
+# "팔레트 리셋" 메뉴는 사용자 파일을 본 번들로 덮어쓴다.
+
+[palette]
+exec    = "#FFFFFF"
+bool    = "#A02020"
+int     = "#1FBEB6"
+float   = "#7AC74F"
+name    = "#C68FE6"
+string  = "#FF66FF"
+struct  = "#5B8FF9"
+object  = "#3F9CBE"
+default = "#C8C878"
+
+[bucket]
+bool         = "bool"
+float        = "float"
+double       = "float"
+int8         = "int"
+int16        = "int"
+int32        = "int"
+int64        = "int"
+uint8        = "int"
+uint16       = "int"
+uint32       = "int"
+uint64       = "int"
+FName        = "name"
+FString      = "string"
+FText        = "string"
+FVector      = "struct"
+FVector2D    = "struct"
+FVector4     = "struct"
+FRotator     = "struct"
+FQuat        = "struct"
+FTransform   = "struct"
+FMatrix      = "struct"
+FColor       = "struct"
+FLinearColor = "struct"
+FRigElementKey = "struct"
+FRigControlValue = "struct"
+
+[special]
+exec_marker  = "ExecuteContext"
+array_marker = "TArray<"

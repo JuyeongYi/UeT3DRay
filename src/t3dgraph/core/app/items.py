@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsLineItem, QGraphicsItem,
 )
 from ..base.graph_model import Node, Pin
+from .pin_colors import PinColorTable
 
 
 class _NodeItemBus(QObject):
@@ -28,6 +29,7 @@ class PinRow:
     path: str
     depth: int
     has_dot: bool
+    has_children: bool = False   # subpins가 비어있지 않으면 True (F12 disclosure 표시)
 
 
 def collect_pin_rows(
@@ -44,7 +46,8 @@ def collect_pin_rows(
         my_idx: int | None = None
         if include_self:
             my_idx = len(rows)
-            rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True))
+            rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True,
+                               has_children=bool(pin.subpins)))
         children_added = False
         if path in expanded:
             for sp in pin.subpins:
@@ -54,7 +57,8 @@ def collect_pin_rows(
         if my_idx is not None and children_added:
             cur = rows[my_idx]
             rows[my_idx] = PinRow(pin=cur.pin, path=cur.path,
-                                  depth=cur.depth, has_dot=False)
+                                  depth=cur.depth, has_dot=False,
+                                  has_children=cur.has_children)
         return include_self or children_added
 
     for pin in node.pins:
@@ -71,6 +75,7 @@ class NodeItem(QGraphicsRectItem):
         connected_only: bool = False,
         expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
+        pin_colors: "PinColorTable | None" = None,
     ):
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 connected_only=connected_only,
@@ -103,6 +108,7 @@ class NodeItem(QGraphicsRectItem):
 
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
+        self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
         for i, row in enumerate(rows):
             cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
             self._rows[row.path] = cy
@@ -111,12 +117,38 @@ class NodeItem(QGraphicsRectItem):
             if row.has_dot:
                 dot = QGraphicsEllipseItem(
                     mx - PIN_RADIUS, cy - PIN_RADIUS, 2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
-                dot.setBrush(QBrush(QColor(200, 200, 120)))
-                dot.setPen(QPen(Qt.NoPen))
+                if pin_colors is not None:
+                    resolved = pin_colors.resolve(row.pin.cpp_type)
+                    dot.setBrush(QBrush(resolved.color))
+                    if resolved.is_array:
+                        dot.setPen(QPen(QColor(40, 40, 40), 1.5))
+                    else:
+                        dot.setPen(QPen(Qt.NoPen))
+                else:
+                    dot.setBrush(QBrush(QColor(200, 200, 120)))
+                    dot.setPen(QPen(Qt.NoPen))
+            indent = 18 + row.depth * 12
+            arrow_w = 0.0
+            if row.has_children:
+                arrow_char = "▼" if row.path in expanded_paths else "▶"
+                arrow = QGraphicsSimpleTextItem(arrow_char, self)
+                arrow.setBrush(QBrush(QColor(210, 210, 210)))
+                arrow_w = arrow.boundingRect().width()
+                if is_input:
+                    ax = indent - 14
+                    # dot x∈[-PIN_RADIUS, PIN_RADIUS] → zone starts after dot
+                    zone = (PIN_RADIUS + 2, indent - 2)
+                else:
+                    ax = NODE_WIDTH - indent + 2
+                    zone = (NODE_WIDTH - indent + 2, NODE_WIDTH - PIN_RADIUS - 2)
+                arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
+                self._arrow_zones[row.path] = (zone[0], zone[1], cy)
             label = QGraphicsSimpleTextItem(row.pin.name, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
-            indent = 8 + row.depth * 12
-            lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
+            if is_input:
+                lx = indent
+            else:
+                lx = NODE_WIDTH - 8 - label.boundingRect().width() - arrow_w
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
     @property
@@ -139,6 +171,21 @@ class NodeItem(QGraphicsRectItem):
             self._bus.enter_subgraph_requested.emit(self.node.name)
             return True
         return False
+
+    def toggle_at_pos(self, pos: QPointF) -> bool:
+        """화살표 zone 좌표에 있으면 토글 발사. 발사 여부 반환."""
+        for path, (x0, x1, cy) in self._arrow_zones.items():
+            if x0 <= pos.x() <= x1 and abs(pos.y() - cy) <= ROW_HEIGHT / 2:
+                if self._bus is not None:
+                    self._bus.pin_toggle_requested.emit(path)
+                return True
+        return False
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        if self.toggle_at_pos(event.pos()):
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
         y = event.pos().y()

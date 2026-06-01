@@ -20,6 +20,9 @@ t3dgraph-gui = "t3dgraph.core.app.app:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"t3dgraph.core.app.resources" = ["*.toml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
