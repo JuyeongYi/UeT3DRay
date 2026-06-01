@@ -28,6 +28,7 @@ class PinRow:
     path: str
     depth: int
     has_dot: bool
+    has_children: bool = False   # subpins가 비어있지 않으면 True (F12 disclosure 표시)
 
 
 def collect_pin_rows(
@@ -44,7 +45,8 @@ def collect_pin_rows(
         my_idx: int | None = None
         if include_self:
             my_idx = len(rows)
-            rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True))
+            rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True,
+                               has_children=bool(pin.subpins)))
         children_added = False
         if path in expanded:
             for sp in pin.subpins:
@@ -54,7 +56,8 @@ def collect_pin_rows(
         if my_idx is not None and children_added:
             cur = rows[my_idx]
             rows[my_idx] = PinRow(pin=cur.pin, path=cur.path,
-                                  depth=cur.depth, has_dot=False)
+                                  depth=cur.depth, has_dot=False,
+                                  has_children=cur.has_children)
         return include_self or children_added
 
     for pin in node.pins:
