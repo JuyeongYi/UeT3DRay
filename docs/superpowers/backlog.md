@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차(τ·π·φ) 완료(`08827a5`), 2차(ρ·σ) 디스패치 진행 중. 본 사이클 improver findings 45건 등재 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7 + φ 7). **π 데이터 확정**: F20 실 원인 = κ-A2(FunctionReferenceNode↔AssetResolver 미연결), F17 = T3D 배열 직렬화 역순 quirk, F14 = Orion 샘플 미재현.
+상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`). Spec 1(μ·ν·ξ) + Spec 2(τ·π·φ·σ·ρ) 8 슬라이스 모두 머지, 430 tests passing. F14를 제외한 사용자 피드백 10/11 처리 완료. 본 사이클 improver findings 53건 누적 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7 + φ 7 + σ·ρ 8).
 
 ---
 
@@ -233,6 +233,23 @@ batch ⑨ Spec 2, F16(변수 가시화).
 | FEAT-45 (φ-C2) | "이 변수의 모든 소비자 강조" — 우클릭 메뉴, 동일 `variable_source` 핀들을 fan-in 모드로 점등. F16 데이터의 자연스러운 활용. |
 
 **메모 (improver 권고):** **φ-A2**가 latent — RigVM 변종에서 silent fail. ρ 머지 후 ρ가 이미 RigVM 메타를 만지므로 같은 결에 추가 가능. **φ-B2**는 ν-B1 + φ-B2 두 신호 누적 — **다음 정리 슬라이스 1순위로 격상**(`GraphModel.find_pin` + `iter_pin_paths` 통합).
+
+### improver Slice σ + ρ 리뷰 findings (2026-06-01, master b0464a6) — 미처리
+
+batch ⑨ Spec 2 2차 (F17 array sort + F20 resolver + π cleanup).
+
+| ID | 내용 |
+| --- | --- |
+| **ρ-A1** | `resolve_function_reference` 정규식 `re.search(r"'([^']+)'", ref_path)`이 첫 quoted segment만. UE의 redirect 체인·메타 섞인 ref(`Redirect'...'->'Class'/Game/...'`)에서 잘못된 라이브러리 키로 룩업 후 silent miss. **F20 fix 전체가 한 줄로 무효화 가능 — 정규식 강도 보강 1순위**. 마지막 quoted segment 또는 `Class'...'` 패턴 명시 매칭. |
+| **ρ-A3** | `ReferencedFunctionHeader.LibraryPointer.LibraryNodePath` 단일 구조 가정 — UE 5.x 변형에서 헤더 구조 다르면 `ref_path`가 None로 떨어져 `external_refs_unresolved`에도 안 올라감, 사용자는 "F20 안 됨"으로만 인지. 알려진 구조 외엔 `external_refs_unresolved`에 `obj.name + reason` 명시 추가. |
+| σ-A1 | `_sort_array_subpins`의 `all(p.name.isdigit() ...)` 게이트 — UE가 `Item_0`·`Element_0` 같은 prefixed name으로 array 직렬화하는 변형에서 다시 역순. 정량 reproducer가 digit-only에 묶여 비대응 케이스 미감지. `^([A-Za-z_]*?)(\d+)$` 패턴으로 일반화. |
+| ρ-B1 | `controller.py`의 `inspect.signature`로 resolver 옵셔널 디스패치 — backward-compat glue. `InterpreterFactory` 프로토콜을 `(resolver: AssetResolver \| None = None)`로 표준화. |
+| ρ-B2 | controller가 view의 `_resolver` private 끌어옴 — view contract(`AbstractGraphView`)에 `resolver` property 노출 또는 controller 직접 보유. 의존 방향 정상화. |
+| ρ-B3 | `cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None` 패턴이 `_interpret_objects` 3분기 동일 — `_cls_suffix(obj)` 헬퍼 또는 `T3DObject.cls_suffix` property. |
+| FEAT-46 (ρ-C1) | 외부 라이브러리 미해결 도크 + "함수 라이브러리 폴더 지정" 액션 — `external_refs_unresolved` 가시화 + 사용자가 동적 보강. F20 데이터로는 잡히는데 사용자가 어디서 해결할지 모르는 갭 해소. |
+| FEAT-47 (σ-C1) | inspector에서 array 원본 직렬화 순서 토글 — F17 정렬 결과 vs T3D 원본 순서 비교. UE quirk 디버깅·재현 보고용. |
+
+**메모 (improver 권고):** **ρ-A1**이 최우선 — F20 fix가 silent miss될 수 있어 정규식 보강은 비용 대비 효과 가장 큼. **ρ-A3**와 묶어 같은 핫픽스 슬라이스에 처리하면 자연. **ρ-B1·B2** + 다음 정리 슬라이스(pin walk 통합)에 contracts 정리 동승 가능. **σ-A1**은 사용자가 다른 UE 프로젝트 샘플 가져올 때 즉시 부딪힐 후속.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
