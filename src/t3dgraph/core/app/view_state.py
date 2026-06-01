@@ -43,3 +43,15 @@ class ViewState:
 
     def collapse_all_pins(self) -> None:
         self.expanded_pin_paths.clear()
+
+    def expand_node_pins(self, node_name: str, all_paths: list[str]) -> None:
+        """노드의 모든 핀 path(서브핀 포함)를 expanded set에 추가."""
+        prefix = f"{node_name}."
+        self.expanded_pin_paths.update(p for p in all_paths if p.startswith(prefix))
+
+    def collapse_node_pins(self, node_name: str) -> None:
+        """노드 prefix에 해당하는 path를 expanded set에서 제거."""
+        prefix = f"{node_name}."
+        self.expanded_pin_paths = {
+            p for p in self.expanded_pin_paths if not p.startswith(prefix)
+        }

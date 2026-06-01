@@ -6,18 +6,23 @@ from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
 from ..base.paths import type_suffix, node_of
 from .items import NodeItem, LinkItem
+from .layout_overrides import LayoutOverrides
 from .pin_colors import PinColorTable
 from .view_state import ViewState
 
 
 class GraphScene(QGraphicsScene):
-    pin_toggle_requested = Signal(str)        # Slice A: 핀 행 토글 (full_path)
-    enter_subgraph_requested = Signal(str)    # Slice C: 헤더 더블클릭 (node name)
+    pin_toggle_requested = Signal(str)
+    enter_subgraph_requested = Signal(str)
+    node_position_changed = Signal(str, float, float)   # F18
+    node_context_menu_requested = Signal(str, object)   # F19
 
     def __init__(self) -> None:
         super().__init__()
         self._nodes: dict[str, NodeItem] = {}
-        self._links: list[tuple[LinkItem, str, str]] = []
+        # (link_item, src_node, src_sub, dst_node, dst_sub)
+        self._links: list[tuple[LinkItem, str, str, str, str]] = []
+        self._populating = False  # suppress position_changed during setPos in populate
 
     def node_item(self, name: str) -> NodeItem | None:
         return self._nodes.get(name)
@@ -25,7 +30,9 @@ class GraphScene(QGraphicsScene):
     def populate(self, graph: GraphModel, *,
                  view_state: ViewState | None = None,
                  flow: FlowResult | None = None,
-                 pin_colors: "PinColorTable | None" = None) -> None:
+                 pin_colors: "PinColorTable | None" = None,
+                 layout_overrides: LayoutOverrides | None = None,
+                 graph_key: str = "") -> None:
         vs = view_state or ViewState()
         keep_selected = self.selected_node_name()
         self.clear()
@@ -36,25 +43,34 @@ class GraphScene(QGraphicsScene):
         convergence = set(flow.convergence_points) if flow is not None else set()
 
         fallback_i = 0
-        for node in graph.nodes:
-            item = NodeItem(
-                node,
-                connected_paths=frozenset(connected.get(node.name, set())),
-                connected_only=vs.connected_pins_only,
-                expanded_paths=frozenset(
-                    p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
-                ),
-                highlighted=vs.fan_in_highlight and node.name in convergence,
-                pin_colors=pin_colors,
-            )
-            if node.position is None:
-                item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
-                fallback_i += 1
-            if item.bus is not None:
+        self._populating = True
+        try:
+            for node in graph.nodes:
+                item = NodeItem(
+                    node,
+                    connected_paths=frozenset(connected.get(node.name, set())),
+                    connected_only=vs.connected_pins_only,
+                    expanded_paths=frozenset(
+                        p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
+                    ),
+                    highlighted=vs.fan_in_highlight and node.name in convergence,
+                    pin_colors=pin_colors,
+                )
+                override = (layout_overrides.get(graph_key, node.name)
+                            if layout_overrides is not None else None)
+                if override is not None:
+                    item.setPos(*override)
+                elif node.position is None:
+                    item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
+                    fallback_i += 1
                 item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
                 item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
-            self.addItem(item)
-            self._nodes[node.name] = item
+                item.bus.position_changed.connect(self._relay_position_changed)
+                item.bus.context_menu_requested.connect(self.node_context_menu_requested)
+                self.addItem(item)
+                self._nodes[node.name] = item
+        finally:
+            self._populating = False
         for link in graph.links:
             self._add_link(link)
 
@@ -85,7 +101,23 @@ class GraphScene(QGraphicsScene):
         p2 = dst.pin_anchor(t_sub, "Input")
         item = LinkItem(p1, p2)
         self.addItem(item)
-        self._links.append((item, s_node, t_node))
+        self._links.append((item, s_node, s_sub, t_node, t_sub))
+
+    def _relay_position_changed(self, name: str, x: float, y: float) -> None:
+        if not self._populating:
+            self.node_position_changed.emit(name, x, y)
+            self._update_links_for_node(name)
+
+    def _update_links_for_node(self, node_name: str) -> None:
+        """드래그 후 해당 노드와 연결된 링크의 bezier path를 재계산한다."""
+        for link_item, s_node, s_sub, d_node, d_sub in self._links:
+            if s_node == node_name or d_node == node_name:
+                src = self._nodes.get(s_node)
+                dst = self._nodes.get(d_node)
+                if src and dst:
+                    p1 = src.pin_anchor(s_sub, "Output")
+                    p2 = dst.pin_anchor(d_sub, "Input")
+                    link_item.update_endpoints(p1, p2)
 
     def select_node(self, name: str) -> None:
         self.clearSelection()
@@ -114,7 +146,7 @@ class GraphScene(QGraphicsScene):
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():
             item.setVisible(type_suffix(item.node.cls) not in hidden_types)
-        for link_item, s_node, t_node in self._links:
+        for link_item, s_node, _ss, t_node, _ts in self._links:
             src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
             visible = (src is not None and src.isVisible()
                        and dst is not None and dst.isVisible())

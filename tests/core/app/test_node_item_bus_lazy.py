@@ -12,10 +12,11 @@ def qapp():
     yield app
 
 
-def test_bus_not_created_for_bare_node(qapp):
+def test_bus_always_created(qapp):
+    """F18: bus는 드래그 신호가 필요하므로 모든 노드에 생성."""
     node = Node(name="X", cls=None)
     item = NodeItem(node)
-    assert item._bus is None
+    assert item._bus is not None
 
 
 def test_bus_created_for_subgraph_node(qapp):
@@ -33,7 +34,7 @@ def test_bus_created_for_pinned_node(qapp):
 
 
 def test_bare_node_double_click_does_not_raise(qapp):
-    """bus 없는 노드의 더블클릭은 AttributeError 없이 통과."""
+    """서브그래프/핀 없는 노드의 더블클릭은 예외 없이 통과."""
     from PySide6.QtCore import QPointF, QEvent, Qt
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
     node = Node(name="X", cls=None)

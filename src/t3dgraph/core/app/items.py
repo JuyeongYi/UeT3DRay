@@ -2,10 +2,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from PySide6.QtCore import QObject, QRectF, QPointF, Qt, Signal
-from PySide6.QtGui import QPen, QBrush, QColor
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
-    QGraphicsLineItem, QGraphicsItem,
+    QGraphicsPathItem, QGraphicsItem,
 )
 from ..base.graph_model import Node, Pin
 from .pin_colors import PinColorTable
@@ -13,8 +13,10 @@ from .pin_colors import PinColorTable
 
 class _NodeItemBus(QObject):
     """QGraphicsRectItem은 QObject가 아니므로 Signal carrier를 별도 보관."""
-    pin_toggle_requested = Signal(str)        # Slice A: 핀 행 토글 (full_path)
-    enter_subgraph_requested = Signal(str)    # Slice C: 헤더 더블클릭 (node name)
+    pin_toggle_requested = Signal(str)        # 핀 행 토글 (full_path)
+    enter_subgraph_requested = Signal(str)    # 헤더 더블클릭 (node name)
+    position_changed = Signal(str, float, float)   # F18 (node_name, x, y)
+    context_menu_requested = Signal(str, object)   # F19 (node_name, QPoint)
 
 
 NODE_WIDTH = 200.0
@@ -83,8 +85,7 @@ class NodeItem(QGraphicsRectItem):
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, NODE_WIDTH, height))
         self.node = node
-        needs_bus = node.subgraph is not None or bool(node.pins)
-        self._bus: _NodeItemBus | None = _NodeItemBus() if needs_bus else None
+        self._bus: _NodeItemBus = _NodeItemBus()
         x, y = node.position if node.position else (0.0, 0.0)
         self.setPos(x, y)
         if highlighted:
@@ -94,6 +95,8 @@ class NodeItem(QGraphicsRectItem):
         self.setBrush(QBrush(QColor(70, 70, 80) if not node.is_generic
                               else QColor(90, 60, 60)))
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.ItemIsMovable, True)              # F18
+        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
 
         title = QGraphicsSimpleTextItem(node.display_name or node.name or "?", self)
         title.setBrush(QBrush(QColor(235, 235, 235)))
@@ -152,11 +155,11 @@ class NodeItem(QGraphicsRectItem):
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
     @property
-    def bus(self) -> _NodeItemBus | None:
+    def bus(self) -> _NodeItemBus:
         return self._bus
 
     def toggle_pin_at_row(self, row_index: int) -> None:
-        if self._bus is not None and 0 <= row_index < len(self._row_paths):
+        if 0 <= row_index < len(self._row_paths):
             self._bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
     def _try_emit_enter_subgraph(self, y: float) -> bool:
@@ -167,7 +170,7 @@ class NodeItem(QGraphicsRectItem):
         subgraph가 없는 노드는 시그널을 발사하지 않는다 — 수신측 noop이라도
         사용자가 무반응을 인지하기보다 호출 자체가 없는 편이 명확.
         """
-        if y < HEADER_HEIGHT and self.node.subgraph is not None and self._bus is not None:
+        if y < HEADER_HEIGHT and self.node.subgraph is not None:
             self._bus.enter_subgraph_requested.emit(self.node.name)
             return True
         return False
@@ -176,10 +179,19 @@ class NodeItem(QGraphicsRectItem):
         """화살표 zone 좌표에 있으면 토글 발사. 발사 여부 반환."""
         for path, (x0, x1, cy) in self._arrow_zones.items():
             if x0 <= pos.x() <= x1 and abs(pos.y() - cy) <= ROW_HEIGHT / 2:
-                if self._bus is not None:
-                    self._bus.pin_toggle_requested.emit(path)
+                self._bus.pin_toggle_requested.emit(path)
                 return True
         return False
+
+    def itemChange(self, change, value):  # noqa: N802 (Qt override)
+        if change == QGraphicsItem.ItemPositionHasChanged:
+            p = self.pos()
+            self._bus.position_changed.emit(self.node.name, p.x(), p.y())
+        return super().itemChange(change, value)
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        self._bus.context_menu_requested.emit(self.node.name, event.screenPos())
+        event.accept()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
         if self.toggle_at_pos(event.pos()):
@@ -203,7 +215,7 @@ class NodeItem(QGraphicsRectItem):
 
     def _emit_enter_subgraph_for_test(self) -> None:
         """테스트 전용 — 헤더 더블클릭 시그널 직접 발사."""
-        if self._bus is not None and self.node.subgraph is not None:
+        if self.node.subgraph is not None:
             self._bus.enter_subgraph_requested.emit(self.node.name)
 
     def has_pin_row(self, full_path: str) -> bool:
@@ -230,10 +242,30 @@ class NodeItem(QGraphicsRectItem):
             self.setPen(QPen(QColor(40, 40, 40)))
 
 
-class LinkItem(QGraphicsLineItem):
-    """두 핀 앵커를 잇는 선."""
+MIN_HANDLE_PX = 40.0
+BACKWARD_HANDLE_PX = 120.0
+
+
+class LinkItem(QGraphicsPathItem):
+    """두 핀 앵커를 잇는 cubic bezier 선."""
 
     def __init__(self, p1: QPointF, p2: QPointF):
-        super().__init__(p1.x(), p1.y(), p2.x(), p2.y())
+        super().__init__(self._build_path(p1, p2))
         self.setPen(QPen(QColor(170, 170, 170), 1.5))
         self.setZValue(-1)
+
+    @staticmethod
+    def _build_path(p1: QPointF, p2: QPointF) -> QPainterPath:
+        dx = p2.x() - p1.x()
+        handle = max(abs(dx) / 2.0, MIN_HANDLE_PX)
+        if dx < 0:
+            handle = max(handle, BACKWARD_HANDLE_PX)
+        c1 = QPointF(p1.x() + handle, p1.y())
+        c2 = QPointF(p2.x() - handle, p2.y())
+        path = QPainterPath(p1)
+        path.cubicTo(c1, c2, p2)
+        return path
+
+    def update_endpoints(self, p1: QPointF, p2: QPointF) -> None:
+        self.prepareGeometryChange()
+        self.setPath(self._build_path(p1, p2))
