@@ -233,6 +233,12 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             and (obj.cls or "").rsplit(".", 1)[-1] == "RigVMFunctionReferenceNode"
         ):
             ref_path = _text(obj.properties.get("ReferencedNode"))
+            if ref_path is None:
+                header = obj.properties.get("ReferencedFunctionHeader")
+                if isinstance(header, Struct):
+                    lib_ptr = dict(header.items).get("LibraryPointer")
+                    if isinstance(lib_ptr, Struct):
+                        ref_path = _text(dict(lib_ptr.items).get("LibraryNodePath"))
             if ref_path:
                 ext_obj = self._resolver.resolve_function_reference(ref_path)
                 if ext_obj is not None:
