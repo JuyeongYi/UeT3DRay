@@ -1,6 +1,7 @@
 """메인 윈도우 — 메뉴·도크·중앙 그래프 캔버스."""
 from __future__ import annotations
 from typing import Callable
+from urllib.parse import quote
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
@@ -26,7 +27,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("t3dgraph viewer")
         self.resize(1200, 800)
 
-        self.view_state = ViewState()
+        self._view_states: dict[str, ViewState] = {}
+        self._fallback_view_state = ViewState()   # 그래프 없을 때 (브레드크럼·전체 펼침)
+        self._root_tokens: dict[int, str] = {}  # id(root_graph) → stable token
+        self._next_token = 0
         self.graph: GraphModel | None = None
         self._flow = None
 
@@ -109,8 +113,10 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar("뷰 모드")
         self._view_mode_actions: dict[str, QAction] = {}
         toggles = (
-            ("connected_only", "연결된 핀만", self.view_state.set_connected_pins_only, False),
-            ("fan_in_highlight", "fan-in 강조", self.view_state.set_fan_in_highlight, True),
+            ("connected_only", "연결된 핀만",
+             lambda v: self.current_view_state().set_connected_pins_only(v), False),
+            ("fan_in_highlight", "fan-in 강조",
+             lambda v: self.current_view_state().set_fan_in_highlight(v), True),
         )
         for mode_id, label, setter, in_place in toggles:
             action = QAction(label, self)
@@ -144,11 +150,11 @@ class MainWindow(QMainWindow):
         for n in self.graph.nodes:
             for p in n.pins:
                 walk(n.name, p, n.name)
-        self.view_state.expand_all_pins(paths)
+        self.current_view_state().expand_all_pins(paths)
         self._rebuild_scene()
 
     def _on_collapse_all_pins(self) -> None:
-        self.view_state.collapse_all_pins()
+        self.current_view_state().collapse_all_pins()
         self._rebuild_scene()
 
     def _on_view_mode(self, setter, checked: bool, in_place: bool = False) -> None:
@@ -159,9 +165,35 @@ class MainWindow(QMainWindow):
         else:
             self._rebuild_scene()
 
+    def current_view_state(self) -> ViewState:
+        """현재 그래프 키 기준의 ViewState. 없으면 생성."""
+        key = self._current_graph_key()
+        if not key:
+            return self._fallback_view_state
+        if key not in self._view_states:
+            self._view_states[key] = ViewState()
+        return self._view_states[key]
+
+    @property
+    def view_state(self) -> ViewState:
+        """하위 호환 프로퍼티 — 기존 테스트·외부 코드용."""
+        return self.current_view_state()
+
+    def _current_graph_key(self) -> str:
+        current = self.graph_stack.current()
+        if current is None:
+            return ""
+        label = quote(current.label or "(unlabeled)", safe="")
+        parent = quote(current.parent_node or "", safe="")
+        roots = self.graph_stack.roots()
+        idx = self._tab_bar.currentIndex()
+        root = roots[idx] if 0 <= idx < len(roots) else None
+        token = self._root_tokens.get(id(root), "?") if root is not None else "?"
+        return f"{token}/{label}/{parent}"
+
     def _rebuild_scene(self) -> None:
         if self.graph is not None:
-            self.scene.populate(self.graph, view_state=self.view_state,
+            self.scene.populate(self.graph, view_state=self.current_view_state(),
                                 flow=self._flow)
 
     def set_view_mode(self, mode_id: str, checked: bool) -> None:
@@ -208,7 +240,7 @@ class MainWindow(QMainWindow):
         self.scene.apply_search_highlight(hits)
 
     def _on_pin_toggle(self, full_path: str) -> None:
-        self.view_state.toggle_pin_expanded(full_path)
+        self.current_view_state().toggle_pin_expanded(full_path)
         self._rebuild_scene()
 
     def _on_open(self) -> None:
@@ -233,7 +265,7 @@ class MainWindow(QMainWindow):
 
     def _on_scene_selection(self) -> None:
         name = self.scene.selected_node_name()
-        self.view_state.select(name)
+        self.current_view_state().select(name)
         if self.graph is not None:
             node = self.graph.node_by_name(name) if name else None
             self.inspector.show_node(node, self.graph)
@@ -242,8 +274,8 @@ class MainWindow(QMainWindow):
         self.data_flow_panel.highlight_node(name)
 
     def _on_type_toggled(self, type_name: str, hidden: bool) -> None:
-        self.view_state.set_type_hidden(type_name, hidden)
-        self.scene.apply_hidden_types(self.view_state.hidden_node_types)
+        self.current_view_state().set_type_hidden(type_name, hidden)
+        self.scene.apply_hidden_types(self.current_view_state().hidden_node_types)
 
     def _navigate_to(self, node_name: str) -> None:
         self.scene.select_node(node_name)
@@ -256,6 +288,8 @@ class MainWindow(QMainWindow):
         if label and not graph.label:
             graph.label = label
         self.graph_stack.open_root(graph)
+        self._root_tokens[id(graph)] = str(self._next_token)
+        self._next_token += 1
         self._tab_bar.blockSignals(True)
         self._tab_bar.addTab(graph.label or '(이름 없음)')
         self._tab_bar.setCurrentIndex(self._tab_bar.count() - 1)
@@ -269,6 +303,17 @@ class MainWindow(QMainWindow):
         self._render_current()
 
     def _on_tab_close(self, index: int) -> None:
+        # Capture token BEFORE removing tab (same pattern as layout_overrides cleanup)
+        roots = self.graph_stack.roots()
+        if 0 <= index < len(roots):
+            root = roots[index]
+            token = self._root_tokens.pop(id(root), None)
+            if token is not None:
+                # Clean up ViewState entries for this tab (prefix match catches subgraph keys)
+                stale = [k for k in self._view_states
+                         if k.startswith(f"{token}/") or k == token]
+                for k in stale:
+                    del self._view_states[k]
         self._tab_bar.blockSignals(True)
         self._tab_bar.removeTab(index)
         self._tab_bar.blockSignals(False)
@@ -300,7 +345,7 @@ class MainWindow(QMainWindow):
         self.graph = current
         from ..analysis.bundle import run as run_analyses
         bundle = run_analyses(current)
-        self.scene.populate(current, view_state=self.view_state, flow=bundle.flow)
+        self.scene.populate(current, view_state=self.current_view_state(), flow=bundle.flow)
         self.node_filter.set_graph(current)
         self.inspector.show_node(None, current)
         self.view.fit()
