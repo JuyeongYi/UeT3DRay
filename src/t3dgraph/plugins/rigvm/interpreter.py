@@ -137,8 +137,9 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 f"interpret 깊이 {depth} >= {max_depth} — 추가 추출 중단 (label={label or '?'})"
             )
             for obj in objects:
+                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=obj.cls,
+                    name=obj.name or "?", cls=cls_suffix,
                     reason="depth cap", parent_obj=parent_node))
             return g
         for obj in objects:
@@ -157,13 +158,15 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                     f"최상위에 RigVMGraph 객체 '{obj.name or '?'}' 발견 — "
                     f"자식 {len(obj.children)}개가 추출되지 않음"
                 )
+                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=obj.cls,
+                    name=obj.name or "?", cls=cls_suffix,
                     reason="graph at top", parent_obj=parent_node))
                 continue
             else:
+                cls_suffix = (obj.cls or "").rsplit(".", 1)[-1] or None
                 diagnostics.objects_dropped.append(DroppedObject(
-                    name=obj.name or "?", cls=obj.cls,
+                    name=obj.name or "?", cls=cls_suffix,
                     reason="unknown class", parent_obj=parent_node))
                 self._add_generic(obj, g)
         known = {n.name for n in g.nodes}
