@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-02 **batch ⑨/⑩/⑪ 마감 진행 중** — 자율 루프 사이클 1. batch ⑨(`b0464a6`) + ⑩(`a0b7328`) + ⑪ h1~h4 머지(`d125fc8`, 487 tests), h5 진행 중. 누적 18 슬라이스. improver findings 72건 누적 (⑨ 53 + ⑩ 13 + ⑪ 6).
+상태: 2026-06-02 **batch ⑨/⑩/⑪ 마감** — 자율 루프 사이클 2 진입. batch ⑨/⑩/⑪ 모두 머지(`0d5892c`, 489 tests). batch ⑫(정리) 디스패치 중. 누적 19 슬라이스. improver findings 76건 누적 (⑨ 53 + ⑩ 13 + ⑪ 10).
 
 ---
 
@@ -296,6 +296,19 @@ batch ⑪ 핫픽스 묶음 1차 (multi-key 영속·ref_path 보존·factory depr
 | FEAT-50 (⑪-C1) | schema migration toast — v1→v2 변환 시 statusBar 4초 알림. ω-A2 자매. |
 
 **메모 (improver 권고):** **⑪-A1·A2** boundary private access 재발 → 정리 batch ⑫에 layout_overrides·resolver public API 정리 묶음. **⑪-B1**은 ψ-B2 동시 해소 — 한 슬라이스로 묶음. **⑪-B2**는 ⑪-B1과 같은 슬라이스 가능(persistent 영역).
+
+### improver batch ⑪ h5 리뷰 findings (2026-06-02, master 0d5892c) — batch ⑫ c2 흡수
+
+batch ⑪ h5 (ω-A2 silent reset surface).
+
+| ID | 내용 |
+| --- | --- |
+| **⑪h5-A1** | schema_version mismatch가 `.bak` 백업 없이 빈 state 폴백 — 같은 파일 재오픈 후 save 시 미래 버전 데이터 영구 손실. JSON decode 실패와 동일하게 `.bak` 회수. |
+| **⑪h5-A2** | `from_dict` 구조 오류도 `.bak` 미회수 — 부분 손상 디버깅 단서 손실. 같은 백업 경로로 통일. |
+| ⑪h5-B1 | `.bak` 충돌 시 silent 덮어쓰기 — 두 번 손상 시 첫 백업 사라짐. timestamp suffix(`.bak.{ts}`) 회전. |
+| FEAT-51 (⑪h5-C1) | "영속 상태 디버그" 메뉴 — "폴더 열기"·"가장 최근 `.bak` 보기". statusBar 알림 외 사용자 복구 경로 제공. |
+
+**메모:** A1·A2·B1 모두 batch ⑫ c2 슬라이스에 흡수(`.bak` 통일 + ts 회전). FEAT-51은 향후 FEAT 통합 batch.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
