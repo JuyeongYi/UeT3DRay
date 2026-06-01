@@ -1,6 +1,8 @@
 """앱 컨트롤러 — 파일 열기 → Model 파이프라인 → view 렌더."""
 from __future__ import annotations
 import importlib
+import inspect
+import warnings
 from pathlib import Path
 from ..registry import default_registry
 from ..t3d.document import parse_document
@@ -8,6 +10,24 @@ from ..t3d.objects import T3DParseError
 from ..t3d.encoding import read_t3d_text
 from ..analysis.bundle import run as run_analyses
 from .contracts import AbstractGraphController, AbstractGraphView
+
+
+def _call_interpreter_factory(factory, *, resolver):
+    """Call interpreter factory with resolver= keyword.
+
+    If factory does not accept resolver=, emit DeprecationWarning and call without it.
+    """
+    sig = inspect.signature(factory)
+    if "resolver" in sig.parameters:
+        return factory(resolver=resolver)
+    warnings.warn(
+        "InterpreterFactory does not accept resolver= keyword. "
+        "Update factory to InterpreterFactory protocol "
+        "(see core/app/contracts.py::InterpreterFactory). "
+        "Backward-compat fallback will be removed in a future batch.",
+        DeprecationWarning, stacklevel=2,
+    )
+    return factory()
 
 
 def load_ref(ref: str | None):
@@ -38,7 +58,7 @@ class AppController(AbstractGraphController):
             self._fail(str(e))
             return
         resolver = self.view.resolver
-        interp = plugin.interpreter_factory(resolver=resolver)
+        interp = _call_interpreter_factory(plugin.interpreter_factory, resolver=resolver)
         graph = interp.interpret(doc)
         open_graph = getattr(self.view, "open_graph", None)
         if callable(open_graph):
