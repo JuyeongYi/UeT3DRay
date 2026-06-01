@@ -1,6 +1,7 @@
 """앱 컨트롤러 — 파일 열기 → Model 파이프라인 → view 렌더."""
 from __future__ import annotations
 import importlib
+import inspect
 from pathlib import Path
 from ..registry import default_registry
 from ..t3d.document import parse_document
@@ -37,7 +38,16 @@ class AppController(AbstractGraphController):
         except LookupError as e:
             self._fail(str(e))
             return
-        graph = plugin.interpreter_factory().interpret(doc)
+        resolver = getattr(self.view, "_resolver", None)
+        try:
+            sig = inspect.signature(plugin.interpreter_factory)
+            if "resolver" in sig.parameters:
+                interp = plugin.interpreter_factory(resolver=resolver)
+            else:
+                interp = plugin.interpreter_factory()
+        except (TypeError, ValueError):
+            interp = plugin.interpreter_factory()
+        graph = interp.interpret(doc)
         open_graph = getattr(self.view, "open_graph", None)
         if callable(open_graph):
             # MainWindow는 open_graph 내부에서 분석/데이터플로까지 수행 (Slice C+D).

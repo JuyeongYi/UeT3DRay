@@ -63,7 +63,6 @@ def test_extracted_per_class_snapshot(orion_doc: T3DDocument) -> None:
     )
 
 
-@pytest.mark.xfail(reason="π는 unknown class drop 허용 — ρ 머지 시 제거")
 def test_no_unknown_classes_after_fix(orion_doc: T3DDocument) -> None:
     """ρ 머지 충족 조건 — unknown class dropped 0."""
     graph = RigVMGraphInterpreter().interpret(orion_doc)
@@ -76,7 +75,6 @@ def test_no_unknown_classes_after_fix(orion_doc: T3DDocument) -> None:
     )
 
 
-@pytest.mark.xfail(reason="π는 external_ref 미해결 허용 — ρ 머지 시 제거")
 def test_no_unresolved_external_refs_after_fix(orion_doc: T3DDocument) -> None:
     """ρ 머지 충족 조건 — AssetResolver가 모든 external_ref 해결."""
     graph = RigVMGraphInterpreter().interpret(orion_doc)

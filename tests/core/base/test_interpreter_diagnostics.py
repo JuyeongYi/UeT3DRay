@@ -59,7 +59,8 @@ def test_unknown_class_recorded_as_dropped() -> None:
     assert g.diagnostics is not None
     dropped_classes = [d.cls for d in g.diagnostics.objects_dropped]
     # _add_generic 는 노드를 생성하지만 진단에도 "unknown class"로 기록
-    assert "/Script/X.Foo" in dropped_classes
+    # π-A2: DroppedObject.cls는 suffix만 저장
+    assert "Foo" in dropped_classes
     reasons = [d.reason for d in g.diagnostics.objects_dropped]
     assert "unknown class" in reasons
 
@@ -74,3 +75,14 @@ def test_extracted_per_class_counts_node_suffixes() -> None:
     g = RigVMGraphInterpreter().interpret(doc)
     assert g.diagnostics is not None
     assert g.diagnostics.extracted_per_class.get("RigVMUnitNode") == 2
+
+
+def test_dropped_cls_uses_suffix_for_consistency() -> None:
+    """π-A2: DroppedObject.cls도 suffix만 — extracted_per_class와 cross-reference 가능."""
+    obj = T3DObject(cls="/Script/X.Foo", name="N1", export_path=None,
+                    header_raw="", properties={}, children=[])
+    doc = T3DDocument(objects=[obj])
+    g = RigVMGraphInterpreter().interpret(doc)
+    assert g.diagnostics is not None
+    dropped = g.diagnostics.objects_dropped[0]
+    assert dropped.cls == "Foo", f"기대=Foo, 실제={dropped.cls}"

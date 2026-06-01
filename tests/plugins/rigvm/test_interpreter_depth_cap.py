@@ -2,6 +2,7 @@
 from __future__ import annotations
 from t3dgraph.core.t3d.objects import T3DObject
 from t3dgraph.core.t3d.document import T3DDocument
+from t3dgraph.core.base.graph_model import InterpreterDiagnostics
 from t3dgraph.plugins.rigvm.interpreter import RigVMGraphInterpreter
 
 
@@ -43,7 +44,8 @@ def test_excessive_depth_caps_with_warning():
 def test_custom_max_depth():
     obj = _nest(10)
     interp = RigVMGraphInterpreter()
+    diag = InterpreterDiagnostics()
     g = interp._interpret_objects(
-        [obj], label=None, parent_node=None, depth=0, max_depth=3
+        [obj], label=None, parent_node=None, diagnostics=diag, depth=0, max_depth=3
     )
     assert any("깊이" in w for w in g.warnings)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from pathlib import Path
 from .document import T3DDocument, parse_document
 from .objects import T3DObject
@@ -29,6 +30,23 @@ class AssetResolver:
 
     def resolve_node_name(self, name: str):
         return self._index.get(name)
+
+    def resolve_function_reference(self, ref_path: str) -> "T3DObject | None":
+        """FunctionReferenceNode의 ReferencedNode 경로에서 함수 이름 추출 후 인덱스 조회.
+
+        ref_path 예시:
+            "Class'/Game/.../FunctionLibrary.FunctionLibrary:FunctionLibrary_C.MyFunc'"
+        반환: 해당 이름으로 등록된 T3DObject, 없으면 None.
+        """
+        m = re.search(r"'([^']+)'", ref_path)
+        inner = m.group(1) if m else ref_path
+        if ":" in inner:
+            sub_path = inner.split(":", 1)[1]
+            func_name = sub_path.rsplit(".", 1)[-1]
+        else:
+            func_name = inner.rsplit(".", 1)[-1]
+        hit = self._index.get(func_name)
+        return hit[1] if hit else None
 
     def resolve_external_refs(self, graph) -> dict:
         out = {}
