@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 정합화. batch ⑨ Spec 1 슬라이스 μ(F10·F12)·ξ(F15)·ν(F13·F18·F19) 모두 머지 완료(`71208c2`). 본 사이클 improver findings 24건 등재 (μ 9 + ξ 6 + ν 9). 다음: Spec 2 (F11·F14·F16·F17·F20) brainstorming 진입.
+상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차 진행 — τ(F11) 머지(`0863428`), π·φ 디스패치. 본 사이클 improver findings 31건 등재 (μ 9 + ξ 6 + ν 9 + τ 7). Spec 2 2차(ρ·σ)는 π 머지 데이터 후.
 
 ---
 
@@ -177,6 +177,22 @@ batch ⑨ Spec 1, F13(베지어)·F18(드래그+LayoutOverrides)·F19(노드 컨
 | FEAT-39 (ν-C3) | 자동 레이아웃(Sugiyama/dagre) — `node.position` 없을 때 폴백 그리드 가독성 낮음. `networkx`/`graphviz` "보기 → 자동 정렬". 첫 열림 인상 개선. |
 
 **메모 (improver 권고):** **ν-A2 영속화**가 사용 가치 직격(드래그한 의미 휘발) → Spec 2와 묶거나 단독 핫픽스 슬라이스로 격상 권장. **ν-A1·ν-A3**는 같은 `main_window.py`·`scene.py`를 만지므로 ν-A2 슬라이스에 동승. **ν-B1**은 F19/F2 양쪽이 같은 walk 패턴 — 정리 슬라이스 1순위.
+
+### improver Slice τ 리뷰 findings (2026-06-01, master 0863428) — 미처리
+
+batch ⑨ Spec 2, F11(per-tab ViewState) + ν-B3(graph_key escape) 해소.
+
+| ID | 내용 |
+| --- | --- |
+| **τ-A1** | 툴바 액션 체크 상태가 탭 전환 시 desync — `connected_only`/`fan_in_highlight` 토글이 per-tab `ViewState`에 저장되지만 `QAction.isChecked()`는 툴바 전역. 탭 A에서 켠 뒤 탭 B(off)로 전환하면 액션은 체크된 채 보이지만 실상태 off, 다음 클릭이 의도와 반대. **latent UX 결함**. `_on_tab_change`에서 각 액션 `setChecked(current_view_state().*)` 동기화 필요. |
+| τ-A2 | ViewState 세션 영속화 부재 — per-tab 분리됐지만 앱 재시작 시 expanded/hidden/view modes 초기화. **ν-A2와 같은 가족** — `~/.t3dgraph/view_state/{file_hash}.json` 등으로 묶어 처리하면 시너지. |
+| τ-A3 | `view_state` 프로퍼티가 stale reference 함정 — 하위 호환 프로퍼티가 `current_view_state()`로 위임하지만 외부 코드가 `vs = mw.view_state` 캡처 후 탭 전환 시 이전 탭 ViewState 만짐. 문서에 "참조 캐싱 금지" 명시 또는 deprecation warning. |
+| τ-B1 | 탭 close 리소스 정리 중복 — `layout_overrides.clear_by_prefix`와 `_view_states` prefix 삭제가 같은 패턴 두 번. `_purge_tab_resources(token)` 헬퍼로 한 곳에 모음. 새 per-tab 리소스 추가 시 누락 방지. |
+| τ-B2 | `_current_graph_key()` 응집도 — 입력 데이터가 전부 `GraphStack`+탭바인데 로직은 MainWindow에. `GraphStack.current_key(escape=True)` 또는 `TabKeyResolver`로 분리. 테스트 쉬워짐. |
+| FEAT-40 (τ-C1) | 파일 경로 기반 ViewState 영속화 — `~/.t3dgraph/view_state/{sha256(path)}.json`. 같은 t3d 재오픈 시 마지막 펼침/필터/뷰모드 복원. IDE 표준 UX. |
+| FEAT-41 (τ-C2) | "뷰 모드 모든 탭 동기화" 환경설정 — 글로벌 broadcast 옵션. F11 per-tab 가치 보존 + 선택권. |
+
+**메모 (improver 권고):** **τ-A1**이 핫픽스 후보 — F11 의도가 즉시 깨지는 latent. 같은 슬라이스에 추가 fix 또는 즉시 별도 핫픽스. **τ-A2 + ν-A2**는 영속화 패턴 통일 슬라이스로 묶으면 자연 — Spec 2 ρ/σ 디스패치 전 검토.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
