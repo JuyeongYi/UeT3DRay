@@ -1,9 +1,14 @@
 """뷰어 view/controller 추상 계약 — 플러그인 오버라이드 seam."""
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Protocol
 from ..base.graph_model import GraphModel
 from ..analysis.data_flow import DataFlowResult
 from ..analysis.bundle import AnalysisBundle
+
+if TYPE_CHECKING:
+    from ..t3d.resolver import AssetResolver
+    from ..base.interpreter import AbstractGraphInterpreter
 
 
 class AbstractGraphView(ABC):
@@ -31,6 +36,18 @@ class AbstractGraphView(ABC):
     def show_error(self, message: str) -> None:
         """오류 메시지를 사용자에게 표시한다."""
         raise NotImplementedError
+
+    @property
+    def resolver(self) -> "AssetResolver | None":
+        """현재 에셋 리졸버. 없으면 None."""
+        return None
+
+
+class InterpreterFactory(Protocol):
+    def __call__(
+        self, *, resolver: "AssetResolver | None" = None,
+    ) -> "AbstractGraphInterpreter":
+        ...
 
 
 class AbstractGraphController(ABC):

@@ -1,7 +1,10 @@
 """메인 윈도우 — 메뉴·도크·중앙 그래프 캔버스."""
 from __future__ import annotations
 import tomllib
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from ..t3d.resolver import AssetResolver
 from urllib.parse import quote
 from PySide6.QtCore import Qt, QSignalBlocker, QTimer
 from PySide6.QtWidgets import (
@@ -533,6 +536,10 @@ class MainWindow(QMainWindow):
     def show_error(self, message: str) -> None:
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.warning(self, "t3dgraph", message)
+
+    @property
+    def resolver(self) -> "AssetResolver | None":
+        return self._resolver
 
 
 AbstractGraphView.register(MainWindow)
