@@ -25,7 +25,7 @@ def _call_interpreter_factory(factory, *, resolver):
         "Update factory to InterpreterFactory protocol "
         "(see core/app/contracts.py::InterpreterFactory). "
         "Backward-compat fallback will be removed in a future batch.",
-        DeprecationWarning, stacklevel=2,
+        DeprecationWarning, stacklevel=3,
     )
     return factory()
 
