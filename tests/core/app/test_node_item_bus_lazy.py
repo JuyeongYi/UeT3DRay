@@ -12,10 +12,11 @@ def qapp():
     yield app
 
 
-def test_bus_not_created_for_bare_node(qapp):
+def test_bus_always_created(qapp):
+    """F18: bus는 드래그 신호가 필요하므로 모든 노드에 생성."""
     node = Node(name="X", cls=None)
     item = NodeItem(node)
-    assert item._bus is None
+    assert item._bus is not None
 
 
 def test_bus_created_for_subgraph_node(qapp):
