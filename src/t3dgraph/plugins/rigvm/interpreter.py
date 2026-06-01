@@ -226,17 +226,23 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             node.subgraph is None
             and _cls_suffix(obj) == "RigVMFunctionReferenceNode"
         ):
-            ref_path = _text(obj.properties.get("ReferencedNode"))
-            if not ref_path:
-                ref_path = self._extract_lib_node_path_from_header(obj)
-            if not ref_path:
+            ref_path_raw = _text(obj.properties.get("ReferencedNode"))
+            if not ref_path_raw:
+                ref_path_raw = self._extract_lib_node_path_from_header(obj)
+            if not ref_path_raw:
                 diagnostics.external_refs_unresolved.append(
                     f"{obj.name or '?'} (header parse failed)"
                 )
             elif self._resolver is not None:
-                ext_obj = self._resolver.resolve_function_reference(ref_path)
+                ext_obj = self._resolver.resolve_function_reference(ref_path_raw)
                 if ext_obj is None:
-                    diagnostics.external_refs_unresolved.append(ref_path)
+                    extracted = self._resolver._extract_target_path(ref_path_raw)
+                    if extracted is None:
+                        diagnostics.external_refs_unresolved.append(
+                            f"{obj.name or '?'} (ref unparseable: {ref_path_raw})"
+                        )
+                    else:
+                        diagnostics.external_refs_unresolved.append(ref_path_raw)
                 else:
                     ext_graph_children = [
                         c for c in ext_obj.children if t.is_graph_class(c.cls)
@@ -256,7 +262,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                         else:
                             node.extra_subgraphs.append(ext_sub)
             else:
-                diagnostics.external_refs_unresolved.append(ref_path)
+                diagnostics.external_refs_unresolved.append(ref_path_raw)
         g.nodes.append(node)
         suffix = _cls_suffix(obj) or ""
         diagnostics.extracted_per_class[suffix] = (
