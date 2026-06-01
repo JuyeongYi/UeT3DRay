@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차 진행 — τ(F11) 머지(`0863428`), π(진단·repro) 머지(`ad934a5`), φ(F16) 진행 중(머지 충돌 발생, 라우터 통지). ρ·σ 디스패치. 본 사이클 improver findings 38건 등재 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7). **π 데이터 확정**: F20 실 원인 = κ-A2(FunctionReferenceNode↔AssetResolver 미연결), F17 = T3D 배열 직렬화 역순 quirk, F14 = Orion 샘플 미재현.
+상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차(τ·π·φ) 완료(`08827a5`), 2차(ρ·σ) 디스패치 진행 중. 본 사이클 improver findings 45건 등재 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7 + φ 7). **π 데이터 확정**: F20 실 원인 = κ-A2(FunctionReferenceNode↔AssetResolver 미연결), F17 = T3D 배열 직렬화 역순 quirk, F14 = Orion 샘플 미재현.
 
 ---
 
@@ -217,6 +217,22 @@ batch ⑨ Spec 2 진단 인프라. **π-A1/A2/A3는 ρ 슬라이스에 동승 �
 **F17 실원인**: T3D 원본 자체가 배열 RigVMPin 자식을 `10,9,8,...,0` 역순 직렬화 (UE quirk, Orion ItemArray.Value에서 11개 요소 정확 역순 관측). `_build_pin`에서 digit-only subpin name 정렬로 해결. σ 슬라이스 scope.
 
 **F14**: Orion 샘플 repro 통과 (회귀 미관측). Spec 1 작업 중 자연 해소 가능성. **σ scope에서 제외**, 사용자 추가 보고 시 재현 케이스 갱신.
+
+### improver Slice φ 리뷰 findings (2026-06-01, master 08827a5) — 미처리
+
+batch ⑨ Spec 2, F16(변수 가시화).
+
+| ID | 내용 |
+| --- | --- |
+| φ-A1 | UI 레이어가 `PinColorTable._palette` private 직접 만짐 — `pin_colors._palette.get("variable", ...)`. lazy/scoped 룩업으로 바뀌면 즉시 깨짐. `PinColorTable.resolve_by_key("variable")` 또는 `get_palette_color(key, fallback)` 같은 public API 필요. |
+| **φ-A2** | `_annotate_variable_consumers`가 variable 노드 출력 핀명을 `"Value"`로 하드코딩 — RigVM variant나 사용자 정의 패턴에서 annotation 통째로 빠짐, **사용자는 "F16 동작 안 함"으로 인식**. Pin 메타에서 동적 식별 또는 명시 필드. |
+| φ-A3 | variable 배지에 툴팁 부재 — "var" 배지만으론 어떤 변수인지 모름. `badge_bg.setToolTip(f"variable: {variable_name}")` 한 줄. |
+| φ-B1 | `RigVMVariableNode` 클래스 suffix 체크 중복 — 인터프리터(`_add_variable_ref`)와 UI(`var` 배지) 양쪽. `plugins/rigvm/types.py::is_variable_node(cls)` predicate 통합. |
+| **φ-B2** | path → Pin walk **세 번째 등장** — `_locate_pin` vs `collect_pin_rows` vs `_collect_node_pin_paths`. ν-B1 신호의 세 번째 — **정리 슬라이스 우선순위 상향**. `GraphModel.find_pin(path) -> Pin | None` 메서드 통합 권장. |
+| FEAT-44 (φ-C1) | variable 배지 클릭 → 정의 노드 점프 — 같은 그래프 내 `RigVMVariableNode`로 select + center. 변수 흐름 디버깅 가속. |
+| FEAT-45 (φ-C2) | "이 변수의 모든 소비자 강조" — 우클릭 메뉴, 동일 `variable_source` 핀들을 fan-in 모드로 점등. F16 데이터의 자연스러운 활용. |
+
+**메모 (improver 권고):** **φ-A2**가 latent — RigVM 변종에서 silent fail. ρ 머지 후 ρ가 이미 RigVM 메타를 만지므로 같은 결에 추가 가능. **φ-B2**는 ν-B1 + φ-B2 두 신호 누적 — **다음 정리 슬라이스 1순위로 격상**(`GraphModel.find_pin` + `iter_pin_paths` 통합).
 
 ### 기능 추가 (spec §3.3 향후 확장)
 

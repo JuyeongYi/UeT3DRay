@@ -124,4 +124,21 @@ batch ② §3과 동일. **모델 → 시각화 어느 단계에서도 그래프
 
 **다음 단계**: Spec 2 (F11·F14·F16·F17·**F20**) brainstorming 진입. F20(서브네트워크 누락) 위중도 최상. 동시에 batch ⑨ 백로그 잔여(특히 **μ-A1 팔레트 무음**, **ν-A2 영속화**)도 별도 핫픽스/정리 슬라이스 후보.
 
+### 2026-06-01 update (Spec 2 진행 상태)
+
+| 항목 | 상태 |
+|---|---|
+| Spec 2 design doc | ✅ `2026-06-01-t3dgraph-batch-9-spec-2-data-state-bugs-design.md` (bd34968) |
+| Spec 2 1차 plan (π/τ/φ) | ✅ 3개 plan (207b8c2) |
+| Spec 2 1차 슬라이스 τ (F11) | ✅ 머지 `0863428` · improver 7건 (FEAT-40~41) |
+| Spec 2 1차 슬라이스 π (진단·repro) | ✅ 머지 `ad934a5` · improver 7건 (FEAT-42~43) — **π 데이터로 ρ scope 축소 확정** |
+| Spec 2 1차 슬라이스 φ (F16) | ✅ 머지 `08827a5` · improver 7건 (FEAT-44~45) |
+| Spec 2 2차 plan (ρ/σ) | ✅ 2개 plan (cd7bb93) — π 데이터 기반 |
+| Spec 2 2차 슬라이스 ρ (F20 fix) | 🔄 implementer 진행 (AssetResolver 연결, κ-A2 동시 해소) |
+| Spec 2 2차 슬라이스 σ (F17 fix) | 🔄 implementer 진행 (digit-only subpin 정렬) |
+
+**F14 잔존**: Orion 샘플 repro 미재현 — Spec 1 작업 중 자연 해소 가능성. 사용자 추가 보고 시 별도 슬라이스로 재진입.
+
+**ρ·σ 머지 후 batch ⑨ 완전 마감 후보**. 잔여 핫픽스 후보 (별도 사이클): μ-A1(팔레트 무음), τ-A1(툴바 desync), ν-A2+τ-A2(영속화 통일), 정리 슬라이스(ν-B1+φ-B2 pin walk 통합 1순위).
+
 본 트래커는 Spec 1·2 양쪽 디자인 문서에서 §2 검증 표·§3 불변식·§4 분할의 단일 출처(SoT)로 인용된다.
