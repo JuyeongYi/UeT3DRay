@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from typing import Callable
 from urllib.parse import quote
-from PySide6.QtCore import Qt, QSignalBlocker
+from PySide6.QtCore import Qt, QSignalBlocker, QTimer
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
     QMenu, QMessageBox,
@@ -23,6 +23,7 @@ from .data_flow_panel import DataFlowPanel
 from .minimap_panel import MinimapPanel
 from .layout_overrides import LayoutOverrides
 from .pin_colors import PinColorTable
+from .persistent_state import PersistentState, load_state, save_state
 
 
 class MainWindow(QMainWindow):
@@ -38,6 +39,11 @@ class MainWindow(QMainWindow):
         except (tomllib.TOMLDecodeError, ValueError, OSError) as exc:
             self.pin_colors = self._handle_palette_load_failure(exc)
         self.layout_overrides = LayoutOverrides()
+        self._save_state_timer = QTimer(self)
+        self._save_state_timer.setSingleShot(True)
+        self._save_state_timer.setInterval(500)
+        self._save_state_timer.timeout.connect(self._save_persistent_state)
+        self._current_file_path: str | None = None
         self._root_tokens: dict[int, str] = {}  # id(root_graph) → stable token
         self._next_token = 0
         self.graph: GraphModel | None = None
@@ -202,10 +208,12 @@ class MainWindow(QMainWindow):
                 walk(n.name, p, n.name)
         self.current_view_state().expand_all_pins(paths)
         self._rebuild_scene()
+        self._schedule_save_state()
 
     def _on_collapse_all_pins(self) -> None:
         self.current_view_state().collapse_all_pins()
         self._rebuild_scene()
+        self._schedule_save_state()
 
     def _on_view_mode(self, setter, checked: bool, in_place: bool = False) -> None:
         setter(checked)
@@ -214,6 +222,7 @@ class MainWindow(QMainWindow):
                 set(self._flow.convergence_points), checked)
         else:
             self._rebuild_scene()
+        self._schedule_save_state()
 
     def current_view_state(self) -> ViewState:
         """현재 그래프 키 기준의 ViewState. 없으면 생성."""
@@ -256,6 +265,7 @@ class MainWindow(QMainWindow):
 
     def _on_node_moved(self, node_name: str, x: float, y: float) -> None:
         self.layout_overrides.set(self._current_graph_key(), node_name, x, y)
+        self._schedule_save_state()
 
     def _on_node_context_menu(self, node_name: str, screen_pos) -> None:
         menu = QMenu(self)
@@ -289,6 +299,38 @@ class MainWindow(QMainWindow):
         elif action == "reset_position":
             self.layout_overrides.clear_node(self._current_graph_key(), node_name)
             self._rebuild_scene()
+        self._schedule_save_state()
+
+    def _apply_persistent_state(self, path: str) -> None:
+        state = load_state(path)
+        key = self._current_graph_key()
+        for node, (x, y) in state.node_positions.items():
+            self.layout_overrides.set(key, node, x, y)
+        vs = self.current_view_state()
+        vs.expanded_pin_paths = set(state.expanded_pin_paths)
+        vs.connected_pins_only = state.connected_pins_only
+        vs.fan_in_highlight = state.fan_in_highlight
+        vs.hidden_node_types = set(state.hidden_node_types)
+        self._rebuild_scene()
+        self._sync_toolbar_to_current_view_state()
+
+    def _schedule_save_state(self) -> None:
+        if self._current_file_path is not None:
+            self._save_state_timer.start()
+
+    def _save_persistent_state(self) -> None:
+        if self._current_file_path is None:
+            return
+        key = self._current_graph_key()
+        vs = self.current_view_state()
+        state = PersistentState(
+            node_positions=dict(self.layout_overrides.all_for_graph(key)),
+            expanded_pin_paths=list(vs.expanded_pin_paths),
+            connected_pins_only=vs.connected_pins_only,
+            fan_in_highlight=vs.fan_in_highlight,
+            hidden_node_types=list(vs.hidden_node_types),
+        )
+        save_state(self._current_file_path, state)
 
     def _rebuild_scene(self) -> None:
         # analyses 재실행 없이 scene만 재구성 — _render_current는 analyses도 재실행
@@ -346,6 +388,7 @@ class MainWindow(QMainWindow):
     def _on_pin_toggle(self, full_path: str) -> None:
         self.current_view_state().toggle_pin_expanded(full_path)
         self._rebuild_scene()
+        self._schedule_save_state()
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -364,8 +407,10 @@ class MainWindow(QMainWindow):
         self._open_handler = handler
 
     def open_path(self, path: str) -> None:
+        self._current_file_path = path
         if self._open_handler is not None:
             self._open_handler(path)
+        self._apply_persistent_state(path)
 
     def _on_scene_selection(self) -> None:
         name = self.scene.selected_node_name()
@@ -380,6 +425,7 @@ class MainWindow(QMainWindow):
     def _on_type_toggled(self, type_name: str, hidden: bool) -> None:
         self.current_view_state().set_type_hidden(type_name, hidden)
         self.scene.apply_hidden_types(self.current_view_state().hidden_node_types)
+        self._schedule_save_state()
 
     def _navigate_to(self, node_name: str) -> None:
         self.scene.select_node(node_name)
