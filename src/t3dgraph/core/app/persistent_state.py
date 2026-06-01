@@ -14,7 +14,42 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
+
+
+@dataclass
+class GraphState:
+    """graph_key 단위 상태 — multi-subgraph 영속용."""
+    node_positions: dict[str, tuple[float, float]] = field(default_factory=dict)
+    expanded_pin_paths: list[str] = field(default_factory=list)
+    connected_pins_only: bool = False
+    fan_in_highlight: bool = False
+    hidden_node_types: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "node_positions": [
+                {"node": k, "x": v[0], "y": v[1]}
+                for k, v in self.node_positions.items()
+            ],
+            "expanded_pin_paths": sorted(self.expanded_pin_paths),
+            "connected_pins_only": self.connected_pins_only,
+            "fan_in_highlight": self.fan_in_highlight,
+            "hidden_node_types": sorted(self.hidden_node_types),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "GraphState":
+        return cls(
+            node_positions={
+                e["node"]: (float(e["x"]), float(e["y"]))
+                for e in data.get("node_positions", [])
+            },
+            expanded_pin_paths=list(data.get("expanded_pin_paths", [])),
+            connected_pins_only=bool(data.get("connected_pins_only", False)),
+            fan_in_highlight=bool(data.get("fan_in_highlight", False)),
+            hidden_node_types=list(data.get("hidden_node_types", [])),
+        )
 
 
 @dataclass
@@ -26,6 +61,7 @@ class PersistentState:
     connected_pins_only: bool = False
     fan_in_highlight: bool = False
     hidden_node_types: list[str] = field(default_factory=list)
+    per_graph: dict[str, GraphState] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -38,23 +74,33 @@ class PersistentState:
             "connected_pins_only": self.connected_pins_only,
             "fan_in_highlight": self.fan_in_highlight,
             "hidden_node_types": sorted(self.hidden_node_types),
+            "per_graph": {k: v.to_dict() for k, v in self.per_graph.items()},
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "PersistentState":
         version = data.get("schema_version", _SCHEMA_VERSION)
+        if version == 1:
+            return cls(
+                schema_version=1,
+                node_positions={
+                    e["node"]: (float(e["x"]), float(e["y"]))
+                    for e in data.get("node_positions", [])
+                },
+                expanded_pin_paths=list(data.get("expanded_pin_paths", [])),
+                connected_pins_only=bool(data.get("connected_pins_only", False)),
+                fan_in_highlight=bool(data.get("fan_in_highlight", False)),
+                hidden_node_types=list(data.get("hidden_node_types", [])),
+                per_graph={},
+            )
         if version != _SCHEMA_VERSION:
             return cls()
         return cls(
             schema_version=version,
-            node_positions={
-                e["node"]: (float(e["x"]), float(e["y"]))
-                for e in data.get("node_positions", [])
+            per_graph={
+                k: GraphState.from_dict(v)
+                for k, v in data.get("per_graph", {}).items()
             },
-            expanded_pin_paths=list(data.get("expanded_pin_paths", [])),
-            connected_pins_only=bool(data.get("connected_pins_only", False)),
-            fan_in_highlight=bool(data.get("fan_in_highlight", False)),
-            hidden_node_types=list(data.get("hidden_node_types", [])),
         )
 
 
