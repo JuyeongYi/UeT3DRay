@@ -1,7 +1,10 @@
 """메인 윈도우 — 메뉴·도크·중앙 그래프 캔버스."""
 from __future__ import annotations
 import tomllib
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from ..t3d.resolver import AssetResolver
 from urllib.parse import quote
 from PySide6.QtCore import Qt, QSignalBlocker, QTimer
 from PySide6.QtWidgets import (
@@ -250,19 +253,6 @@ class MainWindow(QMainWindow):
         token = self._root_tokens.get(id(root), "?") if root is not None else "?"
         return f"{token}/{label}/{parent}"
 
-    def _collect_node_pin_paths(self, node) -> list[str]:
-        paths: list[str] = []
-
-        def walk(pin, prefix: str) -> None:
-            path = f"{prefix}.{pin.name}"
-            paths.append(path)
-            for sp in pin.subpins:
-                walk(sp, path)
-
-        for p in node.pins:
-            walk(p, node.name)
-        return paths
-
     def _on_node_moved(self, node_name: str, x: float, y: float) -> None:
         self.layout_overrides.set(self._current_graph_key(), node_name, x, y)
         self._schedule_save_state()
@@ -290,7 +280,7 @@ class MainWindow(QMainWindow):
             node = self.graph.node_by_name(node_name)
             if node is None:
                 return
-            paths = self._collect_node_pin_paths(node)
+            paths = list(self.graph.iter_pin_paths(node_name=node_name))
             self.view_state.expand_node_pins(node_name, paths)
             self._rebuild_scene()
         elif action == "collapse_all":
@@ -546,6 +536,10 @@ class MainWindow(QMainWindow):
     def show_error(self, message: str) -> None:
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.warning(self, "t3dgraph", message)
+
+    @property
+    def resolver(self) -> "AssetResolver | None":
+        return self._resolver
 
 
 AbstractGraphView.register(MainWindow)
