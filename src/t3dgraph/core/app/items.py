@@ -155,11 +155,11 @@ class NodeItem(QGraphicsRectItem):
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
     @property
-    def bus(self) -> _NodeItemBus | None:
+    def bus(self) -> _NodeItemBus:
         return self._bus
 
     def toggle_pin_at_row(self, row_index: int) -> None:
-        if self._bus is not None and 0 <= row_index < len(self._row_paths):
+        if 0 <= row_index < len(self._row_paths):
             self._bus.pin_toggle_requested.emit(self._row_paths[row_index])
 
     def _try_emit_enter_subgraph(self, y: float) -> bool:
@@ -170,7 +170,7 @@ class NodeItem(QGraphicsRectItem):
         subgraph가 없는 노드는 시그널을 발사하지 않는다 — 수신측 noop이라도
         사용자가 무반응을 인지하기보다 호출 자체가 없는 편이 명확.
         """
-        if y < HEADER_HEIGHT and self.node.subgraph is not None and self._bus is not None:
+        if y < HEADER_HEIGHT and self.node.subgraph is not None:
             self._bus.enter_subgraph_requested.emit(self.node.name)
             return True
         return False
@@ -179,21 +179,19 @@ class NodeItem(QGraphicsRectItem):
         """화살표 zone 좌표에 있으면 토글 발사. 발사 여부 반환."""
         for path, (x0, x1, cy) in self._arrow_zones.items():
             if x0 <= pos.x() <= x1 and abs(pos.y() - cy) <= ROW_HEIGHT / 2:
-                if self._bus is not None:
-                    self._bus.pin_toggle_requested.emit(path)
+                self._bus.pin_toggle_requested.emit(path)
                 return True
         return False
 
     def itemChange(self, change, value):  # noqa: N802 (Qt override)
-        if change == QGraphicsItem.ItemPositionHasChanged and self._bus is not None:
+        if change == QGraphicsItem.ItemPositionHasChanged:
             p = self.pos()
             self._bus.position_changed.emit(self.node.name, p.x(), p.y())
         return super().itemChange(change, value)
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802 (Qt override)
-        if self._bus is not None:
-            self._bus.context_menu_requested.emit(self.node.name, event.screenPos())
-            event.accept()
+        self._bus.context_menu_requested.emit(self.node.name, event.screenPos())
+        event.accept()
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
         if self.toggle_at_pos(event.pos()):
@@ -217,7 +215,7 @@ class NodeItem(QGraphicsRectItem):
 
     def _emit_enter_subgraph_for_test(self) -> None:
         """테스트 전용 — 헤더 더블클릭 시그널 직접 발사."""
-        if self._bus is not None and self.node.subgraph is not None:
+        if self.node.subgraph is not None:
             self._bus.enter_subgraph_requested.emit(self.node.name)
 
     def has_pin_row(self, full_path: str) -> bool:
@@ -267,3 +265,7 @@ class LinkItem(QGraphicsPathItem):
         path = QPainterPath(p1)
         path.cubicTo(c1, c2, p2)
         return path
+
+    def update_endpoints(self, p1: QPointF, p2: QPointF) -> None:
+        self.prepareGeometryChange()
+        self.setPath(self._build_path(p1, p2))

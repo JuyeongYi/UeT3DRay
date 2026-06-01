@@ -194,7 +194,8 @@ class MainWindow(QMainWindow):
             return ""
         label = current.label or "(unlabeled)"
         parent = current.parent_node or ""
-        return f"{label}/{parent}"
+        root_idx = self._tab_bar.currentIndex()
+        return f"{root_idx}/{label}/{parent}"
 
     def _collect_node_pin_paths(self, node) -> list[str]:
         paths: list[str] = []
@@ -246,6 +247,7 @@ class MainWindow(QMainWindow):
             self._rebuild_scene()
 
     def _rebuild_scene(self) -> None:
+        # analyses 재실행 없이 scene만 재구성 — _render_current는 analyses도 재실행
         if self.graph is not None:
             self.scene.populate(self.graph, view_state=self.view_state,
                                 flow=self._flow, pin_colors=self.pin_colors,
@@ -359,6 +361,9 @@ class MainWindow(QMainWindow):
         self._render_current()
 
     def _on_tab_close(self, index: int) -> None:
+        self.graph_stack.select_root(index)
+        key = self._current_graph_key()
+        self.layout_overrides.clear_graph(key)
         self._tab_bar.blockSignals(True)
         self._tab_bar.removeTab(index)
         self._tab_bar.blockSignals(False)

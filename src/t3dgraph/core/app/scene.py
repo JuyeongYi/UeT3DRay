@@ -20,7 +20,9 @@ class GraphScene(QGraphicsScene):
     def __init__(self) -> None:
         super().__init__()
         self._nodes: dict[str, NodeItem] = {}
-        self._links: list[tuple[LinkItem, str, str]] = []
+        # (link_item, src_node, src_sub, dst_node, dst_sub)
+        self._links: list[tuple[LinkItem, str, str, str, str]] = []
+        self._populating = False  # suppress position_changed during setPos in populate
 
     def node_item(self, name: str) -> NodeItem | None:
         return self._nodes.get(name)
@@ -41,6 +43,7 @@ class GraphScene(QGraphicsScene):
         convergence = set(flow.convergence_points) if flow is not None else set()
 
         fallback_i = 0
+        self._populating = True
         for node in graph.nodes:
             item = NodeItem(
                 node,
@@ -61,10 +64,11 @@ class GraphScene(QGraphicsScene):
                 fallback_i += 1
             item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
             item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
-            item.bus.position_changed.connect(self.node_position_changed)
+            item.bus.position_changed.connect(self._relay_position_changed)
             item.bus.context_menu_requested.connect(self.node_context_menu_requested)
             self.addItem(item)
             self._nodes[node.name] = item
+        self._populating = False
         for link in graph.links:
             self._add_link(link)
 
@@ -95,7 +99,23 @@ class GraphScene(QGraphicsScene):
         p2 = dst.pin_anchor(t_sub, "Input")
         item = LinkItem(p1, p2)
         self.addItem(item)
-        self._links.append((item, s_node, t_node))
+        self._links.append((item, s_node, s_sub, t_node, t_sub))
+
+    def _relay_position_changed(self, name: str, x: float, y: float) -> None:
+        if not self._populating:
+            self.node_position_changed.emit(name, x, y)
+            self._update_links_for_node(name)
+
+    def _update_links_for_node(self, node_name: str) -> None:
+        """드래그 후 해당 노드와 연결된 링크의 bezier path를 재계산한다."""
+        for link_item, s_node, s_sub, d_node, d_sub in self._links:
+            if s_node == node_name or d_node == node_name:
+                src = self._nodes.get(s_node)
+                dst = self._nodes.get(d_node)
+                if src and dst:
+                    p1 = src.pin_anchor(s_sub, "Output")
+                    p2 = dst.pin_anchor(d_sub, "Input")
+                    link_item.update_endpoints(p1, p2)
 
     def select_node(self, name: str) -> None:
         self.clearSelection()
@@ -124,7 +144,7 @@ class GraphScene(QGraphicsScene):
     def apply_hidden_types(self, hidden_types: set[str]) -> None:
         for item in self._nodes.values():
             item.setVisible(type_suffix(item.node.cls) not in hidden_types)
-        for link_item, s_node, t_node in self._links:
+        for link_item, s_node, _ss, t_node, _ts in self._links:
             src, dst = self._nodes.get(s_node), self._nodes.get(t_node)
             visible = (src is not None and src.isVisible()
                        and dst is not None and dst.isVisible())
