@@ -1,11 +1,12 @@
 """메인 윈도우 — 메뉴·도크·중앙 그래프 캔버스."""
 from __future__ import annotations
+import tomllib
 from typing import Callable
 from urllib.parse import quote
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
-    QMenu,
+    QMenu, QMessageBox,
 )
 from ..base.graph_model import GraphModel
 from .contracts import AbstractGraphView
@@ -34,8 +35,8 @@ class MainWindow(QMainWindow):
         self._fallback_view_state = ViewState()   # 그래프 없을 때 (브레드크럼·전체 펼침)
         try:
             self.pin_colors: PinColorTable | None = PinColorTable.load()
-        except Exception:
-            self.pin_colors = None
+        except (tomllib.TOMLDecodeError, ValueError, OSError) as exc:
+            self.pin_colors = self._handle_palette_load_failure(exc)
         self.layout_overrides = LayoutOverrides()
         self._root_tokens: dict[int, str] = {}  # id(root_graph) → stable token
         self._next_token = 0
@@ -123,6 +124,26 @@ class MainWindow(QMainWindow):
             return
         self._rebuild_scene()
         self.statusBar().showMessage("핀 색 팔레트를 디폴트로 되돌렸습니다.", 4000)
+
+    def _handle_palette_load_failure(self, exc: Exception) -> "PinColorTable":
+        msg = (
+            f"핀 색 팔레트 파일을 읽지 못했습니다.\n"
+            f"오류: {exc}\n\n"
+            f"디폴트 팔레트로 리셋하시겠습니까?\n"
+            f"(예: 사용자 파일을 번들 디폴트로 덮어쓰기)\n"
+            f"(아니오: 이번 세션만 디폴트로 동작, 사용자 파일 보존)"
+        )
+        reply = QMessageBox.warning(
+            self, "팔레트 로드 실패", msg,
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            PinColorTable.reset_user_file()
+            return PinColorTable.load()
+        self.statusBar().showMessage(
+            f"팔레트 로드 실패 — 디폴트로 폴백 (사용자 파일 미변경): {exc}", 10000
+        )
+        return PinColorTable._load_bundled_defaults()
 
     def _on_open_folder(self) -> None:
         from PySide6.QtWidgets import QFileDialog
