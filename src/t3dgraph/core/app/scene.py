@@ -6,13 +6,16 @@ from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
 from ..base.paths import type_suffix, node_of
 from .items import NodeItem, LinkItem
+from .layout_overrides import LayoutOverrides
 from .pin_colors import PinColorTable
 from .view_state import ViewState
 
 
 class GraphScene(QGraphicsScene):
-    pin_toggle_requested = Signal(str)        # Slice A: 핀 행 토글 (full_path)
-    enter_subgraph_requested = Signal(str)    # Slice C: 헤더 더블클릭 (node name)
+    pin_toggle_requested = Signal(str)
+    enter_subgraph_requested = Signal(str)
+    node_position_changed = Signal(str, float, float)   # F18
+    node_context_menu_requested = Signal(str, object)   # F19
 
     def __init__(self) -> None:
         super().__init__()
@@ -25,7 +28,9 @@ class GraphScene(QGraphicsScene):
     def populate(self, graph: GraphModel, *,
                  view_state: ViewState | None = None,
                  flow: FlowResult | None = None,
-                 pin_colors: "PinColorTable | None" = None) -> None:
+                 pin_colors: "PinColorTable | None" = None,
+                 layout_overrides: LayoutOverrides | None = None,
+                 graph_key: str = "") -> None:
         vs = view_state or ViewState()
         keep_selected = self.selected_node_name()
         self.clear()
@@ -47,12 +52,17 @@ class GraphScene(QGraphicsScene):
                 highlighted=vs.fan_in_highlight and node.name in convergence,
                 pin_colors=pin_colors,
             )
-            if node.position is None:
+            override = (layout_overrides.get(graph_key, node.name)
+                        if layout_overrides is not None else None)
+            if override is not None:
+                item.setPos(*override)
+            elif node.position is None:
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
                 fallback_i += 1
-            if item.bus is not None:
-                item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
-                item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
+            item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
+            item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
+            item.bus.position_changed.connect(self.node_position_changed)
+            item.bus.context_menu_requested.connect(self.node_context_menu_requested)
             self.addItem(item)
             self._nodes[node.name] = item
         for link in graph.links:
