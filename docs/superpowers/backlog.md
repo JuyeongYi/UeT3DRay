@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-02 **batch ⑨/⑩/⑪ 마감** — 자율 루프 사이클 2 진입. batch ⑨/⑩/⑪ 모두 머지(`0d5892c`, 489 tests). batch ⑫(정리) 디스패치 중. 누적 19 슬라이스. improver findings 76건 누적 (⑨ 53 + ⑩ 13 + ⑪ 10).
+상태: 2026-06-02 **batch ⑨/⑩/⑪/⑫ 완전 마감** — 자율 루프 종료. master `7032076`, **23 슬라이스 머지, 499 tests** (+300 from session start). improver findings 83건 누적 (⑨ 53 + ⑩ 13 + ⑪ 10 + ⑫ 7). 다음 사이클 핫픽스 1순위: **⑫c2-A2** (v1 migration 시 원본 손실).
 
 ---
 
@@ -322,6 +322,19 @@ batch ⑫ c1 (boundary public API: ⑪-A1·A2·A3).
 | FEAT-52 (⑫c1-C1) | `external_refs_unresolved`를 `list[UnresolvedRef]` 데이터클래스로 — `(path, reason, source_obj)`. α-C1(FEAT-48)·FEAT-46 unresolved 도크 비용 절감. |
 
 **메모:** ⑫c1-A1 (alias 제거 일정)을 batch ⑬ 트래커에 박음. ⑫c1-A2는 외부 사용자 도입 직전까지 deferred 가능. ⑫c1-B1은 docstring 한 줄로 즉시 해소. FEAT-52는 도크 통합 시 자연.
+
+### improver batch ⑫ c2~c4 리뷰 findings (2026-06-02, master 7032076) — 미처리
+
+batch ⑫ c2~c4 (persistent state + values structs + misc 정리).
+
+| ID | 내용 |
+| --- | --- |
+| ⑫c2-A1 | v1 → current_graph_key 이관 시 `""` 충돌 가능성 — `_current_graph_key()`가 `""` 돌려주면 pop+assign 같은 키. 가드: `if dst and dst != "": ...`. |
+| **⑫c2-A2** | v1 migration 토스트만 띄우고 원본 백업 없음 — 다음 save에서 v2로 덮어쓰여 원본 영구 손실. `.bak.{ts}` 회전 한 줄 추가로 회복 가능성 확보. **다음 사이클 핫픽스 1순위**. |
+| ⑫c2-B1 | `ViewState.from_graph_state`가 setter 우회 — docstring 명시("bypass setters for full state restoration") 또는 `_set_state_for_restore` private setter. |
+| FEAT-53 (⑫c-C1) | persistent state import/export 액션 — ω-C1 후속. v2 안정·toast 가시성 확보 시점에 자연. 팀 컨벤션 공유·멀티-머신·백업/복원 한 액션. |
+
+**메모:** **⑫c2-A2**가 사용자 데이터 손실 시나리오 — 다음 사이클 첫 발주 권장. 나머지는 점진. **자율 루프 cleanup 단계 마감** — improver도 동의.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
