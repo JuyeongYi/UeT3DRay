@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차 진행 — τ(F11) 머지(`0863428`), π·φ 디스패치. 본 사이클 improver findings 31건 등재 (μ 9 + ξ 6 + ν 9 + τ 7). Spec 2 2차(ρ·σ)는 π 머지 데이터 후.
+상태: 2026-06-01 정합화. batch ⑨ Spec 1 완료(`71208c2`) + Spec 2 1차 진행 — τ(F11) 머지(`0863428`), π(진단·repro) 머지(`ad934a5`), φ(F16) 진행 중(머지 충돌 발생, 라우터 통지). ρ·σ 디스패치. 본 사이클 improver findings 38건 등재 (μ 9 + ξ 6 + ν 9 + τ 7 + π 7). **π 데이터 확정**: F20 실 원인 = κ-A2(FunctionReferenceNode↔AssetResolver 미연결), F17 = T3D 배열 직렬화 역순 quirk, F14 = Orion 샘플 미재현.
 
 ---
 
@@ -193,6 +193,30 @@ batch ⑨ Spec 2, F11(per-tab ViewState) + ν-B3(graph_key escape) 해소.
 | FEAT-41 (τ-C2) | "뷰 모드 모든 탭 동기화" 환경설정 — 글로벌 broadcast 옵션. F11 per-tab 가치 보존 + 선택권. |
 
 **메모 (improver 권고):** **τ-A1**이 핫픽스 후보 — F11 의도가 즉시 깨지는 latent. 같은 슬라이스에 추가 fix 또는 즉시 별도 핫픽스. **τ-A2 + ν-A2**는 영속화 패턴 통일 슬라이스로 묶으면 자연 — Spec 2 ρ/σ 디스패치 전 검토.
+
+### improver Slice π 리뷰 findings (2026-06-01, master ad934a5) — 미처리
+
+batch ⑨ Spec 2 진단 인프라. **π-A1/A2/A3는 ρ 슬라이스에 동승 처리** (마커 정리·키 통일·시그니처 강제로 ρ 코드 신뢰성↑).
+
+| ID | 내용 |
+| --- | --- |
+| **π-A1** | F20 xfail 두 개가 이미 xpass — `test_no_unknown_classes_after_fix`·`test_no_unresolved_external_refs_after_fix`. ρ 진입 전 마커 제거. 신호 흐림 해소. |
+| **π-A2** | dropped vs extracted 키 비대칭 — `DroppedObject.cls`는 풀 경로, `extracted_per_class`는 suffix. 같은 노드 cross-reference 어려움. 둘 다 suffix로 통일. |
+| π-A3 | `_interpret_objects`의 defensive `diagnostics=None` 폴백 위험 — 재귀에서 누락 시 새 빈 인스턴스가 사라짐. 내부 헬퍼는 필수 인자로 강제. |
+| π-B1 | F14 reproducer `scene._nodes` private 접근 — `GraphScene.iter_node_items()` public 표면. |
+| π-B2 | `_count_node_candidates`가 노드 클래스 판별 로직 중복 — `t.is_node_class(o.cls)` 직접 사용. |
+| FEAT-42 (π-C1) | status bar diagnostics 인디케이터 — `"Extracted N · Dropped D · Depth K · Subgraphs S"` 한 줄. 비용 거의 0. |
+| FEAT-43 (π-C2) | "진단 도크" panel — `objects_dropped`를 cls·reason·parent_obj 테이블. extractor 커버리지 갭 디버깅 첫 도구. |
+
+**π 데이터로 확정된 F20 실원인 (project memory에도 저장)**:
+
+- Orion 샘플 5파일 모두 `dropped=0`, `max_depth=1`, `extracted_per_class` 분포 정상 → NODE_CLASS_SUFFIXES 확장·재귀 강화 **불필요** (가설 폐기)
+- F20 실 원인 = **`RigVMFunctionReferenceNode`가 같은 폴더 `*RigVMFunctionLibrary.t3d.txt`의 함수를 가리키지만 `subgraph` 미연결** = backlog κ-A2 그대로
+- ρ 슬라이스 scope: AssetResolver를 인터프리터에 주입 + FunctionReferenceNode 처리 시 resolver로 외부 함수 룩업 후 그 함수의 ContainedGraph를 `node.subgraph`에 연결
+
+**F17 실원인**: T3D 원본 자체가 배열 RigVMPin 자식을 `10,9,8,...,0` 역순 직렬화 (UE quirk, Orion ItemArray.Value에서 11개 요소 정확 역순 관측). `_build_pin`에서 digit-only subpin name 정렬로 해결. σ 슬라이스 scope.
+
+**F14**: Orion 샘플 repro 통과 (회귀 미관측). Spec 1 작업 중 자연 해소 가능성. **σ scope에서 제외**, 사용자 추가 보고 시 재현 케이스 갱신.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
