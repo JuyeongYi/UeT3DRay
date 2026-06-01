@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`) + **batch ⑩ 완전 마감** (`a0b7328`, 473 tests). 14 슬라이스 머지(μ·ν·ξ·τ·π·φ·σ·ρ + α·χ·ο·υ·ω·ψ). 누적 improver findings 66건 (batch ⑨ 53 + batch ⑩ 13).
+상태: 2026-06-02 **batch ⑨/⑩/⑪ 마감 진행 중** — 자율 루프 사이클 1. batch ⑨(`b0464a6`) + ⑩(`a0b7328`) + ⑪ h1~h4 머지(`d125fc8`, 487 tests), h5 진행 중. 누적 18 슬라이스. improver findings 72건 누적 (⑨ 53 + ⑩ 13 + ⑪ 6).
 
 ---
 
@@ -281,6 +281,21 @@ batch ⑩ 2차 (영속화 + pin walk 통합).
 | FEAT-49 (ω-C1) | 영속 상태 export/import — sha256 키 JSON을 사용자가 export → 팀원 import. "이 노드를 이 자리에서 본다" 합의 공유. 데이터 stable이라 비용 작음. |
 
 **메모 (improver 권고):** **ω-A1 (multi-subgraph 키 손실)**·**ψ-A1 (backward break)** 핫픽스 1순위 묶음 가능. 단 ψ-A1은 외부 플러그인 없는 현 상태에선 실제 회귀 0 — 우선순위는 ω-A1 단독으로도 충분. ω-A2(silent reset)·ψ-B1/B2는 정리 batch.
+
+### improver batch ⑪ h1~h4 리뷰 findings (2026-06-02, master d125fc8) — 미처리
+
+batch ⑪ 핫픽스 묶음 1차 (multi-key 영속·ref_path 보존·factory deprecation·dialog timing).
+
+| ID | 내용 |
+| --- | --- |
+| **⑪-A1** | `_save_persistent_state`가 `layout_overrides._by_graph` private 접근 — `LayoutOverrides.graph_keys() -> Iterable[str]` public 메서드 필요. ρ-B2 boundary leak 재발 패턴. |
+| **⑪-A2** | interpreter가 `resolver._extract_target_path` private 호출 — `AssetResolver.extract_target_path` public 승격 또는 `resolve_function_reference`가 (T3DObject | None, reason: str) 튜플로 보강. |
+| ⑪-A3 | `_call_interpreter_factory` DeprecationWarning stacklevel=2가 호출자(`AppController.interpret_path`)를 가리킴 — stacklevel=3 또는 factory 모듈 경로 메시지에 명시. |
+| ⑪-B1 | `_apply_persistent_state`의 ViewState 구성 v1·v2 분기 복붙 — `ViewState.from_graph_state(gs)` 팩토리. **ψ-B2(setter 우회) 동시 해소 가능**. |
+| ⑪-B2 | v1 normalization을 `from_dict` 경계로 끌어올림 — `from_dict`가 항상 v2 표현 반환, `_apply_persistent_state`는 v2 단일 분기만. |
+| FEAT-50 (⑪-C1) | schema migration toast — v1→v2 변환 시 statusBar 4초 알림. ω-A2 자매. |
+
+**메모 (improver 권고):** **⑪-A1·A2** boundary private access 재발 → 정리 batch ⑫에 layout_overrides·resolver public API 정리 묶음. **⑪-B1**은 ψ-B2 동시 해소 — 한 슬라이스로 묶음. **⑪-B2**는 ⑪-B1과 같은 슬라이스 가능(persistent 영역).
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
