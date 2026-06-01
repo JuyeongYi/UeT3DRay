@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 정합화. batch ⑨ Spec 1 슬라이스 μ(F10·F12)·ξ(F15) 머지 완료(`806653a`), ν(F13·F18·F19) 디스패치 중. 본 사이클 improver findings 15건 등재.
+상태: 2026-06-01 정합화. batch ⑨ Spec 1 슬라이스 μ(F10·F12)·ξ(F15)·ν(F13·F18·F19) 모두 머지 완료(`71208c2`). 본 사이클 improver findings 24건 등재 (μ 9 + ξ 6 + ν 9). 다음: Spec 2 (F11·F14·F16·F17·F20) brainstorming 진입.
 
 ---
 
@@ -159,6 +159,24 @@ batch ⑨ Spec 1, F15(인스펙터 폭 안정).
 | FEAT-36 (ξ-C2) | inspector 내부 필터 박스 — 핀 이름·타입 부분일치 필터. 핀 수백 개짜리 노드(Orion rig)에서 핵심. |
 
 **메모 (improver 권고):** μ-A1은 사용자 직격 — Spec 2 진입 시 우선 검토 또는 별도 핫픽스 슬라이스 후보. μ-B3는 ν 슬라이스와 같은 파일(items.py) 편집이 임박했으므로 ν 머지 후 즉시 처리하는 게 충돌·재작업 비용 최소.
+
+### improver Slice ν 리뷰 findings (2026-06-01, master 71208c2) — 미처리
+
+batch ⑨ Spec 1, F13(베지어)·F18(드래그+LayoutOverrides)·F19(노드 컨텍스트 메뉴).
+
+| ID | 내용 |
+| --- | --- |
+| ν-A1 | `_root_tokens`가 `id(root_graph)` 기반 — 동일 graph 객체 reopen 시 `clear_by_prefix`로 LayoutOverrides 제거 후 토큰 누락. 사용자가 위치 정보를 의도치 않게 잃을 수 있음. 구현자가 본인 메시지에서 `_tab_tokens` 리네이밍 + 탭 단위 키잉 제안. 탭 인덱스/UUID 기반 키로 전환. |
+| **ν-A2** | 노드 위치 영속화 부재 — `LayoutOverrides`가 세션 메모리에만. 앱 재시작 시 드래그 결과 전부 휘발. F18의 핵심 가치(레이아웃 튜닝)가 한 세션 한정. `.t3dgraph/layouts/{root_token}.json` 또는 QSettings 영속화 필요. Spec §9.5에서 "다음 라운드" deferred로 명시했으나 사용 가치 직격이라 다음 batch 우선 후보. |
+| ν-A3 | 드래그 시 모든 링크 O(L) 풀스캔 — `_update_links_for_node`가 1픽셀 드래그마다 전체 `_links` 순회. Orion 규모(수백 핀·수천 링크)에서 끊김 가능. 구현자도 본인 인지. `_links_by_node: dict[str, list[LinkItem]]` 인덱스로 O(degree). |
+| ν-B1 | 핀 트리 walk 중복 — `MainWindow._collect_node_pin_paths` vs `items.collect_pin_rows` 두 곳에서 재귀. 세 번째 등장(F2 dependency_tree 등) 시 drift 확실. `base/graph_model.py` 또는 `base/paths.py`에 `iter_pin_paths(node) -> Iterator[str]` 단일 helper. |
+| ν-B2 | `_links` 5-튜플 깨지기 쉬움 — `(link_item, s_node, s_sub, d_node, d_sub)`이 호출부마다 다르게 언팩(`_ss`/`_ts` 무시 또는 풀 언팩). `dataclass LinkEntry` 또는 `NamedTuple`로 명명. |
+| ν-B3 | `graph_key` 문자열 concat의 escape 없음 — `f"{token}/{label}/{parent}"`이 label에 `/` 들어가면 키 충돌 (ContainedGraph label·parent_node 이름에 슬래시). 튜플 키 또는 `urllib.parse.quote` 적용. |
+| FEAT-37 (ν-C1) | 다중 선택 드래그 — `ItemIsMovable` 노드별인데 멀티 선택 시 묶음 이동 안 됨. 표준 그래프 에디터 UX(서브트리 묶어 재배치). `QGraphicsScene` 멀티 선택 + 그룹 드래그. |
+| FEAT-38 (ν-C2) | 드래그/메뉴 액션 Undo/Redo — `QUndoStack` + `MovedCommand`·`ResetPositionCommand`·`ExpandedNodeCommand`. `Ctrl+Z`/`Ctrl+Shift+Z` 매핑. F19 컨텍스트 메뉴와 자연 결합. |
+| FEAT-39 (ν-C3) | 자동 레이아웃(Sugiyama/dagre) — `node.position` 없을 때 폴백 그리드 가독성 낮음. `networkx`/`graphviz` "보기 → 자동 정렬". 첫 열림 인상 개선. |
+
+**메모 (improver 권고):** **ν-A2 영속화**가 사용 가치 직격(드래그한 의미 휘발) → Spec 2와 묶거나 단독 핫픽스 슬라이스로 격상 권장. **ν-A1·ν-A3**는 같은 `main_window.py`·`scene.py`를 만지므로 ν-A2 슬라이스에 동승. **ν-B1**은 F19/F2 양쪽이 같은 walk 패턴 — 정리 슬라이스 1순위.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 

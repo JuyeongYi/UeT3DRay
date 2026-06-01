@@ -112,11 +112,16 @@ batch ② §3과 동일. **모델 → 시각화 어느 단계에서도 그래프
 | 항목 | 상태 |
 |---|---|
 | 트래커 작성 | ✅ (본 문서) |
-| Spec 1 brainstorming | 🔄 진행 중 |
-| Spec 1 design doc | ⏳ brainstorming 합의 후 |
-| Spec 1 plan (slice 분할) | ⏳ design 승인 후 writing-plans |
+| Spec 1 brainstorming | ✅ 완료 |
+| Spec 1 design doc | ✅ `2026-06-01-t3dgraph-batch-9-spec-1-vis-rendering-design.md` (63c7024) |
+| Spec 1 plan (slice 분할) | ✅ μ/ν/ξ 3개 plan 문서 (ddaf458) |
+| Spec 1 슬라이스 μ (F10+F12) | ✅ 머지 `ddfa8ea` · improver findings 9건(μ-A1~3, μ-B1~3, FEAT-32~34) |
+| Spec 1 슬라이스 ξ (F15) | ✅ 머지 `806653a` · improver findings 6건(ξ-A1~2, ξ-B1~2, FEAT-35~36) |
+| Spec 1 슬라이스 ν (F13+F18+F19) | ✅ 머지 `71208c2` · improver findings 9건(ν-A1~3, ν-B1~3, FEAT-37~39) |
 | Spec 2 재현 케이스 작성 | ⏳ Spec 2 세션 시작 시 |
 | Spec 2 design doc | ⏳ 별도 세션 |
 | Spec 2 plan | ⏳ Spec 2 design 승인 후 |
+
+**다음 단계**: Spec 2 (F11·F14·F16·F17·**F20**) brainstorming 진입. F20(서브네트워크 누락) 위중도 최상. 동시에 batch ⑨ 백로그 잔여(특히 **μ-A1 팔레트 무음**, **ν-A2 영속화**)도 별도 핫픽스/정리 슬라이스 후보.
 
 본 트래커는 Spec 1·2 양쪽 디자인 문서에서 §2 검증 표·§3 불변식·§4 분할의 단일 출처(SoT)로 인용된다.
