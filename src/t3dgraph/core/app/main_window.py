@@ -4,6 +4,7 @@ from typing import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
+    QMenu,
 )
 from ..base.graph_model import GraphModel
 from .contracts import AbstractGraphView
@@ -18,6 +19,7 @@ from .analysis_panel import AnalysisPanel
 from .execution_order_panel import ExecutionOrderPanel
 from .data_flow_panel import DataFlowPanel
 from .minimap_panel import MinimapPanel
+from .layout_overrides import LayoutOverrides
 from .pin_colors import PinColorTable
 
 
@@ -32,6 +34,7 @@ class MainWindow(QMainWindow):
             self.pin_colors: PinColorTable | None = PinColorTable.load()
         except Exception:
             self.pin_colors = None
+        self.layout_overrides = LayoutOverrides()
         self.graph: GraphModel | None = None
         self._flow = None
 
@@ -185,10 +188,69 @@ class MainWindow(QMainWindow):
         else:
             self._rebuild_scene()
 
+    def _current_graph_key(self) -> str:
+        current = self.graph_stack.current()
+        if current is None:
+            return ""
+        label = current.label or "(unlabeled)"
+        parent = current.parent_node or ""
+        return f"{label}/{parent}"
+
+    def _collect_node_pin_paths(self, node) -> list[str]:
+        paths: list[str] = []
+
+        def walk(pin, prefix: str) -> None:
+            path = f"{prefix}.{pin.name}"
+            paths.append(path)
+            for sp in pin.subpins:
+                walk(sp, path)
+
+        for p in node.pins:
+            walk(p, node.name)
+        return paths
+
+    def _on_node_moved(self, node_name: str, x: float, y: float) -> None:
+        self.layout_overrides.set(self._current_graph_key(), node_name, x, y)
+
+    def _on_node_context_menu(self, node_name: str, screen_pos) -> None:
+        menu = QMenu(self)
+        act_expand = menu.addAction("이 노드 모두 펼침")
+        act_collapse = menu.addAction("이 노드 모두 접기")
+        menu.addSeparator()
+        act_reset = menu.addAction("원래 위치로 되돌리기")
+        chosen = menu.exec(screen_pos.toPoint() if hasattr(screen_pos, "toPoint")
+                           else screen_pos)
+        if chosen is act_expand:
+            self._invoke_node_action(node_name, "expand_all")
+        elif chosen is act_collapse:
+            self._invoke_node_action(node_name, "collapse_all")
+        elif chosen is act_reset:
+            self._invoke_node_action(node_name, "reset_position")
+
+    def _invoke_node_action(self, node_name: str, action: str) -> None:
+        """컨텍스트 메뉴 액션 실행 — 테스트가 메뉴 popup 없이 직접 호출 가능."""
+        if action == "expand_all":
+            if self.graph is None:
+                return
+            node = self.graph.node_by_name(node_name)
+            if node is None:
+                return
+            paths = self._collect_node_pin_paths(node)
+            self.view_state.expand_node_pins(node_name, paths)
+            self._rebuild_scene()
+        elif action == "collapse_all":
+            self.view_state.collapse_node_pins(node_name)
+            self._rebuild_scene()
+        elif action == "reset_position":
+            self.layout_overrides.clear_node(self._current_graph_key(), node_name)
+            self._rebuild_scene()
+
     def _rebuild_scene(self) -> None:
         if self.graph is not None:
             self.scene.populate(self.graph, view_state=self.view_state,
-                                flow=self._flow, pin_colors=self.pin_colors)
+                                flow=self._flow, pin_colors=self.pin_colors,
+                                layout_overrides=self.layout_overrides,
+                                graph_key=self._current_graph_key())
 
     def set_view_mode(self, mode_id: str, checked: bool) -> None:
         """안정 식별자로 뷰 모드 토글 — connected_only / fan_in_highlight."""
@@ -226,6 +288,8 @@ class MainWindow(QMainWindow):
         self.scene.enter_subgraph_requested.connect(self._on_enter_subgraph)
         self.breadcrumb.segment_clicked.connect(self._on_breadcrumb_clicked)
         self.minimap.location_clicked.connect(self._on_minimap_click)
+        self.scene.node_position_changed.connect(self._on_node_moved)
+        self.scene.node_context_menu_requested.connect(self._on_node_context_menu)
 
     def _on_search_changed(self) -> None:
         if self.graph is None:
@@ -327,7 +391,9 @@ class MainWindow(QMainWindow):
         from ..analysis.bundle import run as run_analyses
         bundle = run_analyses(current)
         self.scene.populate(current, view_state=self.view_state, flow=bundle.flow,
-                            pin_colors=self.pin_colors)
+                            pin_colors=self.pin_colors,
+                            layout_overrides=self.layout_overrides,
+                            graph_key=self._current_graph_key())
         self.node_filter.set_graph(current)
         self.inspector.show_node(None, current)
         self.view.fit()
