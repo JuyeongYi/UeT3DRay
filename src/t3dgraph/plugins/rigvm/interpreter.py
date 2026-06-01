@@ -234,15 +234,12 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                     f"{obj.name or '?'} (header parse failed)"
                 )
             elif self._resolver is not None:
-                ext_obj = self._resolver.resolve_function_reference(ref_path_raw)
+                ext_obj, reason = self._resolver.resolve_function_reference(ref_path_raw)
                 if ext_obj is None:
-                    extracted = self._resolver._extract_target_path(ref_path_raw)
-                    if extracted is None:
-                        diagnostics.external_refs_unresolved.append(
-                            f"{obj.name or '?'} (ref unparseable: {ref_path_raw})"
-                        )
-                    else:
-                        diagnostics.external_refs_unresolved.append(ref_path_raw)
+                    suffix = f" ({reason})" if reason else ""
+                    diagnostics.external_refs_unresolved.append(
+                        f"{ref_path_raw}{suffix}"
+                    )
                 else:
                     ext_graph_children = [
                         c for c in ext_obj.children if t.is_graph_class(c.cls)

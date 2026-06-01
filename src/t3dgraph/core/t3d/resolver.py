@@ -31,7 +31,8 @@ class AssetResolver:
     def resolve_node_name(self, name: str):
         return self._index.get(name)
 
-    def _extract_target_path(self, ref_path: str) -> str | None:
+    def extract_target_path(self, ref_path: str) -> str | None:
+        """ref 경로에서 타겟 추출. 비표준이면 None (public)."""
         if not ref_path:
             return None
         m = re.search(r"Class'([^']+)'", ref_path)
@@ -44,23 +45,28 @@ class AssetResolver:
             return ref_path
         return None
 
-    def resolve_function_reference(self, ref_path: str) -> "T3DObject | None":
+    # 한 사이클 호환 별칭
+    _extract_target_path = extract_target_path
+
+    def resolve_function_reference(
+        self, ref_path: str
+    ) -> "tuple[T3DObject | None, str | None]":
         """FunctionReferenceNode의 ReferencedNode 경로에서 함수 이름 추출 후 인덱스 조회.
 
-        ref_path 예시:
-            "Class'/Game/.../FunctionLibrary.FunctionLibrary:FunctionLibrary_C.MyFunc'"
-        반환: 해당 이름으로 등록된 T3DObject, 없으면 None.
+        반환: (T3DObject 또는 None, 사유 메시지). 사유 None이면 정상 해결.
         """
-        inner = self._extract_target_path(ref_path)
+        inner = self.extract_target_path(ref_path)
         if inner is None:
-            return None
+            return None, "ref unparseable"
         if ":" in inner:
             sub_path = inner.split(":", 1)[1]
             func_name = sub_path.rsplit(".", 1)[-1]
         else:
             func_name = inner.rsplit(".", 1)[-1]
         hit = self._index.get(func_name)
-        return hit[1] if hit else None
+        if hit is None:
+            return None, "asset not found in resolver"
+        return hit[1], None
 
     def resolve_external_refs(self, graph) -> dict:
         out = {}
