@@ -17,8 +17,8 @@ def test_handles_broken_palette_with_user_reset(qtbot, tmp_path, monkeypatch) ->
                         lambda *a, **kw: QMessageBox.Yes)
     w = MainWindow()
     qtbot.addWidget(w)
+    qtbot.wait(50)
     assert w.pin_colors is not None
-    # 사용자 파일이 정상 (덮어쓰기됨)
     user_text = (tmp_path / "pin_colors.toml").read_text(encoding="utf-8")
     assert "[palette]" in user_text
 
@@ -32,10 +32,9 @@ def test_handles_broken_palette_with_user_no(qtbot, tmp_path, monkeypatch) -> No
                         lambda *a, **kw: QMessageBox.No)
     w = MainWindow()
     qtbot.addWidget(w)
+    qtbot.wait(50)
     assert w.pin_colors is not None
-    # 사용자 파일은 그대로 깨진 상태
     assert "[[broken" in (tmp_path / "pin_colors.toml").read_text(encoding="utf-8")
-    # statusBar 메시지 확인
     assert "팔레트" in w.statusBar().currentMessage()
 
 
@@ -48,4 +47,20 @@ def test_normal_palette_no_dialog(qtbot, tmp_path, monkeypatch) -> None:
                         lambda *a, **kw: called.append(1) or QMessageBox.Yes)
     w = MainWindow()
     qtbot.addWidget(w)
-    assert called == []  # 다이얼로그 미호출
+    qtbot.wait(50)
+    assert called == []
+
+
+def test_dialog_not_called_during_init(qtbot, tmp_path, monkeypatch) -> None:
+    """다이얼로그가 __init__ 중에는 호출 안 됨 — h4 핵심 (ο-A2)."""
+    monkeypatch.setattr(PinColorTable, "_user_dir",
+                        classmethod(lambda cls: tmp_path))
+    (tmp_path / "pin_colors.toml").write_text("[[broken", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(QMessageBox, "warning",
+                        lambda *a, **kw: calls.append(1) or QMessageBox.No)
+    w = MainWindow()
+    qtbot.addWidget(w)
+    assert calls == [], "다이얼로그가 __init__ 중 호출됨 — ο-A2 회귀"
+    qtbot.wait(50)
+    assert calls == [1]
