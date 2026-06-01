@@ -109,6 +109,21 @@ class NodeItem(QGraphicsRectItem):
             self.setCursor(Qt.PointingHandCursor)
             self.setToolTip("더블클릭하여 서브그래프 진입")
 
+        # F16: 변수 노드 헤더 우측에 'var' 배지
+        if (node.cls or "").rsplit(".", 1)[-1] == "RigVMVariableNode":
+            var_color = QColor("#9966FF")
+            if pin_colors is not None:
+                var_color = pin_colors._palette.get("variable", var_color)
+            badge_w, badge_h = 24.0, 14.0
+            badge_x = NODE_WIDTH - badge_w - 6
+            badge_y = (HEADER_HEIGHT - badge_h) / 2
+            badge_bg = QGraphicsRectItem(badge_x, badge_y, badge_w, badge_h, self)
+            badge_bg.setBrush(QBrush(var_color))
+            badge_bg.setPen(QPen(Qt.NoPen))
+            badge_text = QGraphicsSimpleTextItem("var", self)
+            badge_text.setBrush(QBrush(QColor(255, 255, 255)))
+            badge_text.setPos(badge_x + 5, badge_y + 1)
+
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
         self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
@@ -146,7 +161,10 @@ class NodeItem(QGraphicsRectItem):
                     zone = (NODE_WIDTH - indent + 2, NODE_WIDTH - PIN_RADIUS - 2)
                 arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
                 self._arrow_zones[row.path] = (zone[0], zone[1], cy)
-            label = QGraphicsSimpleTextItem(row.pin.name, self)
+            label_text = row.pin.name
+            if row.pin.variable_source:
+                label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
+            label = QGraphicsSimpleTextItem(label_text, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
             if is_input:
                 lx = indent

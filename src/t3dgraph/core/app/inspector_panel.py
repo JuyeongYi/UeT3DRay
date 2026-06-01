@@ -77,8 +77,14 @@ class InspectorPanel(NavigablePanel):
         is_chg = is_changed_from_default(pin)
         status = " · ".join(
             s for s in ("연결됨" if is_conn else "", "변경됨(추정)" if is_chg else "") if s)
+        default_text = pin.default_value or ""
+        if pin.variable_source:
+            if default_text:
+                default_text = f"← var: {pin.variable_source} ({default_text})"
+            else:
+                default_text = f"← var: {pin.variable_source}"
         texts = [pin.name, pin.cpp_type or "", pin.direction or "",
-                 pin.default_value or "", status]
+                 default_text, status]
         item = QTreeWidgetItem(texts)
         self._apply_truncation_tooltips(item, texts)
         if is_conn:

@@ -32,6 +32,7 @@ class Pin:
     is_execution: bool = False
     subpins: list["Pin"] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+    variable_source: str | None = None   # F16: 변수 노드에서 값이 공급되는 경우 변수명
 
 
 @dataclass

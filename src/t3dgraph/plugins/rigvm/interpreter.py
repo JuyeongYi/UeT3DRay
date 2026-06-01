@@ -65,7 +65,45 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         g = self._interpret_objects(
             doc.objects, label=None, parent_node=None, diagnostics=diag)
         g.diagnostics = diag
+        self._annotate_variable_consumers(g)     # F16
         return g
+
+    def _annotate_variable_consumers(self, g: GraphModel) -> None:
+        """variable_refs + links → 각 소비 핀에 variable_source 부여."""
+        var_outputs: dict[str, str] = {}   # "VariableNode.Value" → variable_name
+        for ref in g.variable_refs:
+            var_outputs[f"{ref.node_name}.Value"] = ref.variable_name
+        for link in g.links:
+            var_name = var_outputs.get(link.source_path)
+            if var_name is None:
+                continue
+            target_pin = self._locate_pin(g, link.target_path)
+            if target_pin is not None:
+                target_pin.variable_source = var_name
+        # 재귀 — 서브그래프 자체에도 variable_refs/links가 있다
+        for node in g.nodes:
+            if node.subgraph is not None:
+                self._annotate_variable_consumers(node.subgraph)
+            for extra in node.extra_subgraphs:
+                self._annotate_variable_consumers(extra)
+
+    def _locate_pin(self, g: GraphModel, path: str) -> "Pin | None":
+        """'NodeName.PinName[.SubPin...]' → Pin 객체. 없으면 None."""
+        parts = path.split(".")
+        if not parts:
+            return None
+        node = g.node_by_name(parts[0])
+        if node is None:
+            return None
+        cur_pins = node.pins
+        last = None
+        for name in parts[1:]:
+            pin = next((p for p in cur_pins if p.name == name), None)
+            if pin is None:
+                return None
+            last = pin
+            cur_pins = pin.subpins
+        return last
 
     def _interpret_objects(
         self,
