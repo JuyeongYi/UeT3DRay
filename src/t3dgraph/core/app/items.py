@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsLineItem, QGraphicsItem,
 )
 from ..base.graph_model import Node, Pin
+from .pin_colors import PinColorTable
 
 
 class _NodeItemBus(QObject):
@@ -74,6 +75,7 @@ class NodeItem(QGraphicsRectItem):
         connected_only: bool = False,
         expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
+        pin_colors: "PinColorTable | None" = None,
     ):
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 connected_only=connected_only,
@@ -114,8 +116,16 @@ class NodeItem(QGraphicsRectItem):
             if row.has_dot:
                 dot = QGraphicsEllipseItem(
                     mx - PIN_RADIUS, cy - PIN_RADIUS, 2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
-                dot.setBrush(QBrush(QColor(200, 200, 120)))
-                dot.setPen(QPen(Qt.NoPen))
+                if pin_colors is not None:
+                    resolved = pin_colors.resolve(row.pin.cpp_type)
+                    dot.setBrush(QBrush(resolved.color))
+                    if resolved.is_array:
+                        dot.setPen(QPen(QColor(40, 40, 40), 1.5))
+                    else:
+                        dot.setPen(QPen(Qt.NoPen))
+                else:
+                    dot.setBrush(QBrush(QColor(200, 200, 120)))
+                    dot.setPen(QPen(Qt.NoPen))
             label = QGraphicsSimpleTextItem(row.pin.name, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
             indent = 8 + row.depth * 12
