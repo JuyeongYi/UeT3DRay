@@ -1,7 +1,7 @@
 """그래프 종류 무관 추상 데이터 모델."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterator
 
 
 @dataclass
@@ -81,3 +81,36 @@ class GraphModel:
             if n.name == name:
                 return n
         return None
+
+    def find_pin(self, path: str) -> "Pin | None":
+        """'NodeName.PinName[.SubPin...]' → Pin. 없으면 None."""
+        if not path:
+            return None
+        parts = path.split(".")
+        node = self.node_by_name(parts[0])
+        if node is None:
+            return None
+        cur_pins = node.pins
+        last: Pin | None = None
+        for name in parts[1:]:
+            pin = next((p for p in cur_pins if p.name == name), None)
+            if pin is None:
+                return None
+            last = pin
+            cur_pins = pin.subpins
+        return last
+
+    def iter_pin_paths(self, *, node_name: str | None = None) -> Iterator[str]:
+        """모든 핀 경로(서브핀 포함) 순회. node_name 지정 시 그 노드만."""
+        nodes = ([n for n in self.nodes if n.name == node_name]
+                 if node_name else self.nodes)
+        for node in nodes:
+            for pin in node.pins:
+                yield from _walk_pin_paths(pin, node.name)
+
+
+def _walk_pin_paths(pin: "Pin", prefix: str) -> Iterator[str]:
+    path = f"{prefix}.{pin.name}"
+    yield path
+    for sp in pin.subpins:
+        yield from _walk_pin_paths(sp, path)
