@@ -26,7 +26,7 @@ from .data_flow_panel import DataFlowPanel
 from .minimap_panel import MinimapPanel
 from .layout_overrides import LayoutOverrides
 from .pin_colors import PinColorTable
-from .persistent_state import PersistentState, load_state, save_state
+from .persistent_state import PersistentState, GraphState, load_state, save_state
 
 
 class MainWindow(QMainWindow):
@@ -37,10 +37,12 @@ class MainWindow(QMainWindow):
 
         self._view_states: dict[str, ViewState] = {}
         self._fallback_view_state = ViewState()   # 그래프 없을 때 (브레드크럼·전체 펼침)
+        self.pin_colors: PinColorTable | None = PinColorTable._load_bundled_defaults()
+        self._palette_load_exc: Exception | None = None
         try:
-            self.pin_colors: PinColorTable | None = PinColorTable.load()
+            self.pin_colors = PinColorTable.load()
         except (tomllib.TOMLDecodeError, ValueError, OSError) as exc:
-            self.pin_colors = self._handle_palette_load_failure(exc)
+            self._palette_load_exc = exc
         self.layout_overrides = LayoutOverrides()
         self._save_state_timer = QTimer(self)
         self._save_state_timer.setSingleShot(True)
@@ -102,6 +104,9 @@ class MainWindow(QMainWindow):
         self._wire()
         self._build_shortcuts()
 
+        if self._palette_load_exc is not None:
+            QTimer.singleShot(0, self._show_palette_load_failure_dialog)
+
     def _dock(self, title: str, widget) -> QDockWidget:
         dock = QDockWidget(title)
         dock.setWidget(widget)
@@ -134,7 +139,10 @@ class MainWindow(QMainWindow):
         self._rebuild_scene()
         self.statusBar().showMessage("핀 색 팔레트를 디폴트로 되돌렸습니다.", 4000)
 
-    def _handle_palette_load_failure(self, exc: Exception) -> "PinColorTable":
+    def _show_palette_load_failure_dialog(self) -> None:
+        exc = self._palette_load_exc
+        if exc is None:
+            return
         msg = (
             f"핀 색 팔레트 파일을 읽지 못했습니다.\n"
             f"오류: {exc}\n\n"
@@ -148,11 +156,13 @@ class MainWindow(QMainWindow):
         )
         if reply == QMessageBox.Yes:
             PinColorTable.reset_user_file()
-            return PinColorTable.load()
-        self.statusBar().showMessage(
-            f"팔레트 로드 실패 — 디폴트로 폴백 (사용자 파일 미변경): {exc}", 10000
-        )
-        return PinColorTable._load_bundled_defaults()
+            self.pin_colors = PinColorTable.load()
+            self._rebuild_scene()
+        else:
+            self.statusBar().showMessage(
+                f"팔레트 로드 실패 — 디폴트로 폴백: {exc}", 10000
+            )
+        self._palette_load_exc = None
 
     def _on_open_folder(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -293,14 +303,28 @@ class MainWindow(QMainWindow):
 
     def _apply_persistent_state(self, path: str) -> None:
         state = load_state(path)
-        key = self._current_graph_key()
-        for node, (x, y) in state.node_positions.items():
-            self.layout_overrides.set(key, node, x, y)
-        vs = self.current_view_state()
-        vs.expanded_pin_paths = set(state.expanded_pin_paths)
-        vs.connected_pins_only = state.connected_pins_only
-        vs.fan_in_highlight = state.fan_in_highlight
-        vs.hidden_node_types = set(state.hidden_node_types)
+        if state.schema_version == 1 and not state.per_graph:
+            key = self._current_graph_key()
+            for node, (x, y) in state.node_positions.items():
+                self.layout_overrides.set(key, node, x, y)
+            vs = ViewState(
+                connected_pins_only=state.connected_pins_only,
+                fan_in_highlight=state.fan_in_highlight,
+            )
+            vs.expanded_pin_paths = set(state.expanded_pin_paths)
+            vs.hidden_node_types = set(state.hidden_node_types)
+            self._view_states[key] = vs
+        else:
+            for key, gs in state.per_graph.items():
+                for node, (x, y) in gs.node_positions.items():
+                    self.layout_overrides.set(key, node, x, y)
+                vs = ViewState(
+                    connected_pins_only=gs.connected_pins_only,
+                    fan_in_highlight=gs.fan_in_highlight,
+                )
+                vs.expanded_pin_paths = set(gs.expanded_pin_paths)
+                vs.hidden_node_types = set(gs.hidden_node_types)
+                self._view_states[key] = vs
         self._rebuild_scene()
         self._sync_toolbar_to_current_view_state()
 
@@ -311,16 +335,18 @@ class MainWindow(QMainWindow):
     def _save_persistent_state(self) -> None:
         if self._current_file_path is None:
             return
-        key = self._current_graph_key()
-        vs = self.current_view_state()
-        state = PersistentState(
-            node_positions=dict(self.layout_overrides.all_for_graph(key)),
-            expanded_pin_paths=list(vs.expanded_pin_paths),
-            connected_pins_only=vs.connected_pins_only,
-            fan_in_highlight=vs.fan_in_highlight,
-            hidden_node_types=list(vs.hidden_node_types),
-        )
-        save_state(self._current_file_path, state)
+        all_keys = set(self._view_states.keys()) | set(self.layout_overrides._by_graph.keys())
+        per_graph: dict[str, GraphState] = {}
+        for key in all_keys:
+            vs = self._view_states.get(key) or ViewState()
+            per_graph[key] = GraphState(
+                node_positions=dict(self.layout_overrides.all_for_graph(key)),
+                expanded_pin_paths=list(vs.expanded_pin_paths),
+                connected_pins_only=vs.connected_pins_only,
+                fan_in_highlight=vs.fan_in_highlight,
+                hidden_node_types=list(vs.hidden_node_types),
+            )
+        save_state(self._current_file_path, PersistentState(schema_version=2, per_graph=per_graph))
 
     def _rebuild_scene(self) -> None:
         # analyses 재실행 없이 scene만 재구성 — _render_current는 analyses도 재실행

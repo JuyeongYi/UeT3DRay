@@ -33,7 +33,8 @@ def _state_dir_isolation(tmp_path, monkeypatch):
 def _make_window(qtbot) -> MainWindow:
     w = MainWindow()
     qtbot.addWidget(w)
-    AppController(w)
+    ctrl = AppController(w)
+    w.set_open_handler(ctrl.open_file)
     return w
 
 
@@ -87,3 +88,21 @@ def test_no_state_file_yields_empty_defaults(qtbot, synth_t3d_file) -> None:
     vs = w.current_view_state()
     assert vs.connected_pins_only is False
     assert vs.expanded_pin_paths == set()
+
+
+def test_multi_subgraph_state_persists(qtbot, synth_t3d_file) -> None:
+    """두 graph_key에 다른 토글 → 모두 복원 — h1 ω-A1."""
+    from t3dgraph.core.app.view_state import ViewState
+    w1 = _make_window(qtbot)
+    w1.open_path(synth_t3d_file)
+    w1._view_states["keyA/"] = ViewState(connected_pins_only=True)
+    w1._view_states["keyB/Sub"] = ViewState(fan_in_highlight=True)
+    w1._save_persistent_state()
+    w1.close()
+
+    w2 = _make_window(qtbot)
+    w2.open_path(synth_t3d_file)
+    assert w2._view_states.get("keyA/") is not None
+    assert w2._view_states["keyA/"].connected_pins_only is True
+    assert w2._view_states.get("keyB/Sub") is not None
+    assert w2._view_states["keyB/Sub"].fan_in_highlight is True
