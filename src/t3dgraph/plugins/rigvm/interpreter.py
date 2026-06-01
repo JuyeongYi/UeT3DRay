@@ -1,5 +1,6 @@
 """RigVM T3DDocument → 추상 GraphModel."""
 from __future__ import annotations
+import re
 from typing import TYPE_CHECKING
 from ..rigvm import types as t
 from ...core.base.interpreter import AbstractGraphInterpreter
@@ -50,17 +51,27 @@ def _position(obj: T3DObject) -> tuple[float, float] | None:
         return None
 
 
+_ARRAY_PATTERN = re.compile(r"^([A-Za-z_]*?)(\d+)$")
+
+
 def _sort_array_subpins(subpins: list[Pin]) -> list[Pin]:
     """T3D 배열 직렬화 quirk 정정.
 
-    UE는 array RigVMPin 자식을 인덱스 역순(10,9,...,0)으로 serialize한다.
-    name이 전부 digit-only이면 int 순으로 재정렬. 그 외엔 원순서 유지.
+    name이 전부 같은 prefix + 끝 digits면 digit 부분으로 int 정렬.
+    예: '0','1','2'           → 0,1,2 (digit-only)
+        'Item_0','Item_1'     → 0,1 정렬
+        'X','Y','Z'           → 원순서 (배열 아님)
+        'Item_0','Element_1'  → 원순서 (prefix 불일치, 안전)
     """
     if not subpins:
         return subpins
-    if all(p.name.isdigit() for p in subpins):
-        return sorted(subpins, key=lambda p: int(p.name))
-    return subpins
+    matches = [_ARRAY_PATTERN.match(p.name) for p in subpins]
+    if not all(matches):
+        return subpins
+    prefixes = {m.group(1) for m in matches}
+    if len(prefixes) != 1:
+        return subpins
+    return sorted(subpins, key=lambda p: int(_ARRAY_PATTERN.match(p.name).group(2)))
 
 
 def _build_pin(obj: T3DObject) -> Pin:
