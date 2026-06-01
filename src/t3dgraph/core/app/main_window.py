@@ -3,7 +3,7 @@ from __future__ import annotations
 import tomllib
 from typing import Callable
 from urllib.parse import quote
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
     QMenu, QMessageBox,
@@ -405,6 +405,25 @@ class MainWindow(QMainWindow):
             return
         self.graph_stack.select_root(index)
         self._render_current()
+        self._sync_toolbar_to_current_view_state()
+
+    def _sync_toolbar_to_current_view_state(self) -> None:
+        """toolbar 액션 체크 상태를 현재 탭 ViewState로 동기화.
+
+        QSignalBlocker로 setChecked가 toggled 시그널을 트리거해
+        _on_view_mode가 다시 호출되는 중복 발사를 차단한다.
+        """
+        vs = self.current_view_state()
+        for mode_id, value in (
+            ("connected_only", vs.connected_pins_only),
+            ("fan_in_highlight", vs.fan_in_highlight),
+        ):
+            action = self._view_mode_actions.get(mode_id)
+            if action is None:
+                continue
+            blocker = QSignalBlocker(action)
+            action.setChecked(value)
+            del blocker  # 명시적 해제 — context manager 대안
 
     def _on_tab_close(self, index: int) -> None:
         roots = self.graph_stack.roots()
