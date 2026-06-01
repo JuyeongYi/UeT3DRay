@@ -62,6 +62,7 @@ class PersistentState:
     fan_in_highlight: bool = False
     hidden_node_types: list[str] = field(default_factory=list)
     per_graph: dict[str, GraphState] = field(default_factory=dict)
+    migrated_from_v1: bool = field(default=False, compare=False)
 
     def to_dict(self) -> dict:
         return {
@@ -81,8 +82,7 @@ class PersistentState:
     def from_dict(cls, data: dict) -> "PersistentState":
         version = data.get("schema_version", _SCHEMA_VERSION)
         if version == 1:
-            return cls(
-                schema_version=1,
+            gs = GraphState(
                 node_positions={
                     e["node"]: (float(e["x"]), float(e["y"]))
                     for e in data.get("node_positions", [])
@@ -91,8 +91,10 @@ class PersistentState:
                 connected_pins_only=bool(data.get("connected_pins_only", False)),
                 fan_in_highlight=bool(data.get("fan_in_highlight", False)),
                 hidden_node_types=list(data.get("hidden_node_types", [])),
-                per_graph={},
             )
+            inst = cls(schema_version=_SCHEMA_VERSION, per_graph={"": gs})
+            inst.migrated_from_v1 = True
+            return inst
         if version != _SCHEMA_VERSION:
             return cls()
         return cls(

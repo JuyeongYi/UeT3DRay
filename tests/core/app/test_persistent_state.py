@@ -140,7 +140,7 @@ def test_per_graph_round_trip() -> None:
 
 
 def test_schema_v1_absorbed() -> None:
-    """schema_version=1 로드 시 v1 필드 보존 — per_graph 비어있음."""
+    """schema_version=1 로드 시 v2로 정규화 — per_graph[""]에 flat 필드 흡수."""
     p = _state_path("/test/legacy.t3d.txt")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({
@@ -153,6 +153,47 @@ def test_schema_v1_absorbed() -> None:
     }), encoding="utf-8")
     loaded, error = load_state("/test/legacy.t3d.txt")
     assert error is None
-    assert loaded.schema_version == 1
-    assert loaded.node_positions == {"N1": (10.0, 20.0)}
-    assert loaded.per_graph == {}
+    assert loaded.schema_version == 2
+    assert loaded.migrated_from_v1 is True
+    assert "" in loaded.per_graph
+    gs = loaded.per_graph[""]
+    assert gs.node_positions == {"N1": (10.0, 20.0)}
+    assert gs.connected_pins_only is True
+    assert gs.expanded_pin_paths == ["N1.P"]
+
+
+def test_from_dict_v1_normalizes_to_v2() -> None:
+    data = {
+        "schema_version": 1,
+        "node_positions": [{"node": "A", "x": 1.0, "y": 2.0}],
+        "expanded_pin_paths": ["A.p"],
+        "connected_pins_only": False,
+        "fan_in_highlight": True,
+        "hidden_node_types": ["loop"],
+    }
+    state = PersistentState.from_dict(data)
+    assert state.schema_version == 2
+    assert state.migrated_from_v1 is True
+    assert "" in state.per_graph
+    gs = state.per_graph[""]
+    assert gs.node_positions == {"A": (1.0, 2.0)}
+    assert gs.fan_in_highlight is True
+    assert gs.hidden_node_types == ["loop"]
+
+
+def test_from_dict_v2_no_migration_flag() -> None:
+    data = {
+        "schema_version": 2,
+        "per_graph": {"k/": {"node_positions": [], "expanded_pin_paths": [],
+                              "connected_pins_only": False, "fan_in_highlight": False,
+                              "hidden_node_types": []}},
+    }
+    state = PersistentState.from_dict(data)
+    assert state.migrated_from_v1 is False
+
+
+def test_migrated_flag_excluded_from_equality() -> None:
+    a = PersistentState()
+    b = PersistentState()
+    b.migrated_from_v1 = True
+    assert a == b

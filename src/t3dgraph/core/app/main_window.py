@@ -304,31 +304,17 @@ class MainWindow(QMainWindow):
     def _apply_persistent_state(self, path: str) -> None:
         state, error = load_state(path)
         if error:
+            self.statusBar().showMessage(f"영속 상태 로드 실패: {error}", 10000)
+        if state.migrated_from_v1:
             self.statusBar().showMessage(
-                f"영속 상태 로드 실패 — 디폴트로 폴백: {error}", 10000
+                "영속 상태 v1 -> v2 자동 변환됨 (저장 시 v2로 덮어쓰기)", 4000
             )
-        if state.schema_version == 1 and not state.per_graph:
-            key = self._current_graph_key()
-            for node, (x, y) in state.node_positions.items():
+        if "" in state.per_graph:
+            state.per_graph[self._current_graph_key()] = state.per_graph.pop("")
+        for key, gs in state.per_graph.items():
+            for node, (x, y) in gs.node_positions.items():
                 self.layout_overrides.set(key, node, x, y)
-            vs = ViewState(
-                connected_pins_only=state.connected_pins_only,
-                fan_in_highlight=state.fan_in_highlight,
-            )
-            vs.expanded_pin_paths = set(state.expanded_pin_paths)
-            vs.hidden_node_types = set(state.hidden_node_types)
-            self._view_states[key] = vs
-        else:
-            for key, gs in state.per_graph.items():
-                for node, (x, y) in gs.node_positions.items():
-                    self.layout_overrides.set(key, node, x, y)
-                vs = ViewState(
-                    connected_pins_only=gs.connected_pins_only,
-                    fan_in_highlight=gs.fan_in_highlight,
-                )
-                vs.expanded_pin_paths = set(gs.expanded_pin_paths)
-                vs.hidden_node_types = set(gs.hidden_node_types)
-                self._view_states[key] = vs
+            self._view_states[key] = ViewState.from_graph_state(gs)
         self._rebuild_scene()
         self._sync_toolbar_to_current_view_state()
 
