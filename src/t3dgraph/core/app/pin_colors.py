@@ -73,6 +73,25 @@ class PinColorTable:
         user_file.write_bytes(bundle_bytes)
         return user_file
 
+    @classmethod
+    def _load_bundled_defaults(cls) -> "PinColorTable":
+        """번들 디폴트를 사용자 파일 무시하고 직접 로드한다 — load 실패 폴백용."""
+        bundle_bytes = resources.files(
+            "t3dgraph.core.app.resources"
+        ).joinpath("pin_colors.toml").read_bytes()
+        data = tomllib.loads(bundle_bytes.decode("utf-8"))
+        palette = {k: QColor(v) for k, v in data.get("palette", {}).items()}
+        if "default" not in palette:
+            palette["default"] = _FALLBACK_COLOR
+        bucket = dict(data.get("bucket", {}))
+        special = data.get("special", {})
+        return cls(
+            palette=palette,
+            bucket=bucket,
+            exec_marker=special.get("exec_marker", "ExecuteContext"),
+            array_marker=special.get("array_marker", "TArray<"),
+        )
+
     def resolve(self, cpp_type: str | None) -> ResolvedColor:
         default = self._palette.get("default", _FALLBACK_COLOR)
         if cpp_type is None:
