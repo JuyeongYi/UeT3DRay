@@ -1,7 +1,10 @@
 """속성 인스펙터 — 선택 노드의 핀·기본값·연결됨·변경됨."""
 from __future__ import annotations
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem
+from PySide6.QtGui import QFontMetrics
+from PySide6.QtWidgets import (
+    QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QHeaderView,
+)
 from ..base.graph_model import GraphModel, Node, Pin
 from .pin_status import is_changed_from_default
 from .navigable_panel import NavigablePanel
@@ -35,6 +38,13 @@ class InspectorPanel(NavigablePanel):
         self._tree = QTreeWidget()
         self._tree.setColumnCount(5)
         self._tree.setHeaderLabels(["핀", "타입", "방향", "기본값", "상태"])
+        header = self._tree.header()
+        header.setSectionResizeMode(QHeaderView.Interactive)
+        header.setStretchLastSection(False)
+        self._col_widths = (140, 160, 70, 120, 90)
+        for i, w in enumerate(self._col_widths):
+            self._tree.setColumnWidth(i, w)
+        self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         layout.addWidget(self._title)
         layout.addWidget(self._tree)
         self._tree.itemActivated.connect(self._on_activated)
@@ -66,9 +76,10 @@ class InspectorPanel(NavigablePanel):
         is_chg = is_changed_from_default(pin)
         status = " · ".join(
             s for s in ("연결됨" if is_conn else "", "변경됨(추정)" if is_chg else "") if s)
-        item = QTreeWidgetItem(
-            [pin.name, pin.cpp_type or "", pin.direction or "",
-             pin.default_value or "", status])
+        texts = [pin.name, pin.cpp_type or "", pin.direction or "",
+                 pin.default_value or "", status]
+        item = QTreeWidgetItem(texts)
+        self._apply_truncation_tooltips(item, texts)
         if is_conn:
             peer = _peer_of(full, graph)
             if peer:
@@ -77,6 +88,15 @@ class InspectorPanel(NavigablePanel):
         self._items[full] = item
         for sub in pin.subpins:
             self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
+
+    def _apply_truncation_tooltips(self, item: QTreeWidgetItem, texts: list[str]) -> None:
+        """셀 텍스트가 컬럼 폭을 초과하면 ToolTipRole에 풀 텍스트를 박는다."""
+        fm = QFontMetrics(self._tree.font())
+        for i, text in enumerate(texts):
+            if not text:
+                continue
+            if fm.horizontalAdvance(text) > self._col_widths[i] - 12:
+                item.setToolTip(i, text)
 
     def _on_activated(self, item: QTreeWidgetItem, _column: int) -> None:
         peer = item.data(0, _PEER_ROLE)
