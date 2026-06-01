@@ -316,3 +316,7 @@ controller     = "t3dgraph.plugins.rigvm.controller:RigVMController"  # 생략 �
 ## 12. 다음 단계
 
 이 spec 승인 후 `writing-plans` 스킬로 구현 계획을 작성한다. 구현은 다수 파일에 걸치므로 작은 하위 작업으로 분해한다.
+
+## Migration Note — InterpreterFactory (batch ⑩ ψ → ⑪ h3)
+
+batch ⑩ ψ removed the `inspect.signature` dispatch glue and introduced the `InterpreterFactory` Protocol. All plugin interpreter factories must accept `(resolver: AssetResolver | None = None)` keyword. batch ⑪ h3 restores a one-cycle deprecation fallback so external plugins can migrate at their own pace. The fallback will be removed in a future cleanup batch.
