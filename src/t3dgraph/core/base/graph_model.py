@@ -34,6 +34,12 @@ class Pin:
     raw: dict[str, Any] = field(default_factory=dict)
     variable_source: str | None = None   # F16: 변수 노드에서 값이 공급되는 경우 변수명
 
+    def iter_paths(self, prefix: str) -> "Iterator[str]":
+        path = f"{prefix}.{self.name}"
+        yield path
+        for sp in self.subpins:
+            yield from sp.iter_paths(path)
+
 
 @dataclass
 class Node:
@@ -106,11 +112,4 @@ class GraphModel:
                  if node_name else self.nodes)
         for node in nodes:
             for pin in node.pins:
-                yield from _walk_pin_paths(pin, node.name)
-
-
-def _walk_pin_paths(pin: "Pin", prefix: str) -> Iterator[str]:
-    path = f"{prefix}.{pin.name}"
-    yield path
-    for sp in pin.subpins:
-        yield from _walk_pin_paths(sp, path)
+                yield from pin.iter_paths(node.name)

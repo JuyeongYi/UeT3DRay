@@ -67,3 +67,20 @@ def test_iter_pin_paths_filtered_by_node() -> None:
 def test_iter_pin_paths_filtered_missing_node_empty() -> None:
     g = GraphModel(nodes=[Node(name="N1", cls="X", pins=[_p("A")])])
     assert list(g.iter_pin_paths(node_name="MissingNode")) == []
+
+
+def test_pin_iter_paths_no_subpins() -> None:
+    p = _p("MyPin")
+    assert list(p.iter_paths("Node")) == ["Node.MyPin"]
+
+
+def test_pin_iter_paths_with_subpins() -> None:
+    p = _p("P", subs=[_p("X"), _p("Y")])
+    assert list(p.iter_paths("N")) == ["N.P", "N.P.X", "N.P.Y"]
+
+
+def test_pin_iter_paths_deeply_nested() -> None:
+    deep = _p("D")
+    mid = _p("M", subs=[deep])
+    top = _p("T", subs=[mid])
+    assert list(top.iter_paths("N")) == ["N.T", "N.T.M", "N.T.M.D"]
