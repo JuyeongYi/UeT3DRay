@@ -6,6 +6,7 @@ from ..base.graph_model import GraphModel, Link
 from ..analysis.flow import FlowResult
 from ..base.paths import type_suffix, node_of
 from .items import NodeItem, LinkItem
+from .pin_colors import PinColorTable
 from .view_state import ViewState
 
 
@@ -23,7 +24,8 @@ class GraphScene(QGraphicsScene):
 
     def populate(self, graph: GraphModel, *,
                  view_state: ViewState | None = None,
-                 flow: FlowResult | None = None) -> None:
+                 flow: FlowResult | None = None,
+                 pin_colors: "PinColorTable | None" = None) -> None:
         vs = view_state or ViewState()
         keep_selected = self.selected_node_name()
         self.clear()
@@ -43,6 +45,7 @@ class GraphScene(QGraphicsScene):
                     p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
                 ),
                 highlighted=vs.fan_in_highlight and node.name in convergence,
+                pin_colors=pin_colors,
             )
             if node.position is None:
                 item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
