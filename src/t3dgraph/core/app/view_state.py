@@ -1,6 +1,10 @@
 """뷰어 표현 상태 — 선택·필터·뷰 모드. 순수 Python(Qt 없음)."""
 from __future__ import annotations
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .persistent_state import GraphState
 
 
 @dataclass
@@ -55,3 +59,14 @@ class ViewState:
         self.expanded_pin_paths = {
             p for p in self.expanded_pin_paths if not p.startswith(prefix)
         }
+
+    @classmethod
+    def from_graph_state(cls, gs: "GraphState") -> "ViewState":
+        """GraphState(영속 표현)에서 ViewState 생성."""
+        vs = cls(
+            connected_pins_only=gs.connected_pins_only,
+            fan_in_highlight=gs.fan_in_highlight,
+        )
+        vs.expanded_pin_paths = set(gs.expanded_pin_paths)
+        vs.hidden_node_types = set(gs.hidden_node_types)
+        return vs

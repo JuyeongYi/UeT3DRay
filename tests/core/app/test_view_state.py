@@ -1,4 +1,5 @@
 from t3dgraph.core.app.view_state import ViewState
+from t3dgraph.core.app.persistent_state import GraphState
 
 
 def test_defaults():
@@ -71,3 +72,19 @@ def test_expand_all_and_collapse_all():
     assert vs.is_pin_expanded("N.A.X") is True
     vs.collapse_all_pins()
     assert vs.is_pin_expanded("N.A") is False
+
+
+def test_view_state_from_graph_state() -> None:
+    gs = GraphState(
+        connected_pins_only=True,
+        fan_in_highlight=True,
+        expanded_pin_paths=["N.A", "N.B"],
+        hidden_node_types=["sequence"],
+        node_positions={"N": (1.0, 2.0)},
+    )
+    vs = ViewState.from_graph_state(gs)
+    assert vs.connected_pins_only is True
+    assert vs.fan_in_highlight is True
+    assert vs.expanded_pin_paths == {"N.A", "N.B"}
+    assert vs.hidden_node_types == {"sequence"}
+    assert vs.selected_node is None
