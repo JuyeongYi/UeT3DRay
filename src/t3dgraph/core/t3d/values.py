@@ -21,6 +21,30 @@ class QuotedString(Value):
 class Struct(Value):
     items: list[tuple[str, "Value"]]
 
+    def find_path(self, *keys: str) -> str | None:
+        """키 경로를 따라 중첩 Struct를 탐색해 최종 리프 텍스트 반환. 없으면 None."""
+        cur: Value = self
+        for key in keys:
+            if not isinstance(cur, Struct):
+                return None
+            cur = next((v for k, v in cur.items if k == key), None)  # type: ignore[assignment]
+            if cur is None:
+                return None
+        if isinstance(cur, (Scalar, QuotedString)):
+            return cur.text
+        return None
+
+    def find_first(self, target_key: str, max_depth: int = 8) -> str | None:
+        """DFS로 target_key를 최대 max_depth 수준까지 탐색해 텍스트 반환. 없으면 None."""
+        for k, v in self.items:
+            if k == target_key and isinstance(v, (Scalar, QuotedString)):
+                return v.text
+            if isinstance(v, Struct) and max_depth > 0:
+                found = v.find_first(target_key, max_depth=max_depth - 1)
+                if found is not None:
+                    return found
+        return None
+
 
 @dataclass(frozen=True)
 class ArrayLiteral(Value):
