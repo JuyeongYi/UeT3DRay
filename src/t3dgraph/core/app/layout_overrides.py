@@ -25,3 +25,8 @@ class LayoutOverrides:
 
     def all_for_graph(self, graph_key: str) -> dict[str, tuple[float, float]]:
         return dict(self._by_graph.get(graph_key, {}))
+
+    def clear_by_prefix(self, prefix: str) -> None:
+        """prefix 로 시작하는 모든 graph_key 의 데이터를 삭제 (탭 close 시 사용)."""
+        for k in [k for k in self._by_graph if k.startswith(prefix)]:
+            del self._by_graph[k]

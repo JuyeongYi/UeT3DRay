@@ -44,31 +44,33 @@ class GraphScene(QGraphicsScene):
 
         fallback_i = 0
         self._populating = True
-        for node in graph.nodes:
-            item = NodeItem(
-                node,
-                connected_paths=frozenset(connected.get(node.name, set())),
-                connected_only=vs.connected_pins_only,
-                expanded_paths=frozenset(
-                    p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
-                ),
-                highlighted=vs.fan_in_highlight and node.name in convergence,
-                pin_colors=pin_colors,
-            )
-            override = (layout_overrides.get(graph_key, node.name)
-                        if layout_overrides is not None else None)
-            if override is not None:
-                item.setPos(*override)
-            elif node.position is None:
-                item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
-                fallback_i += 1
-            item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
-            item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
-            item.bus.position_changed.connect(self._relay_position_changed)
-            item.bus.context_menu_requested.connect(self.node_context_menu_requested)
-            self.addItem(item)
-            self._nodes[node.name] = item
-        self._populating = False
+        try:
+            for node in graph.nodes:
+                item = NodeItem(
+                    node,
+                    connected_paths=frozenset(connected.get(node.name, set())),
+                    connected_only=vs.connected_pins_only,
+                    expanded_paths=frozenset(
+                        p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
+                    ),
+                    highlighted=vs.fan_in_highlight and node.name in convergence,
+                    pin_colors=pin_colors,
+                )
+                override = (layout_overrides.get(graph_key, node.name)
+                            if layout_overrides is not None else None)
+                if override is not None:
+                    item.setPos(*override)
+                elif node.position is None:
+                    item.setPos((fallback_i % 8) * 240.0, (fallback_i // 8) * 200.0)
+                    fallback_i += 1
+                item.bus.pin_toggle_requested.connect(self.pin_toggle_requested)
+                item.bus.enter_subgraph_requested.connect(self.enter_subgraph_requested)
+                item.bus.position_changed.connect(self._relay_position_changed)
+                item.bus.context_menu_requested.connect(self.node_context_menu_requested)
+                self.addItem(item)
+                self._nodes[node.name] = item
+        finally:
+            self._populating = False
         for link in graph.links:
             self._add_link(link)
 

@@ -35,6 +35,8 @@ class MainWindow(QMainWindow):
         except Exception:
             self.pin_colors = None
         self.layout_overrides = LayoutOverrides()
+        self._root_tokens: dict[int, str] = {}  # id(root_graph) → stable token
+        self._next_token = 0
         self.graph: GraphModel | None = None
         self._flow = None
 
@@ -194,8 +196,11 @@ class MainWindow(QMainWindow):
             return ""
         label = current.label or "(unlabeled)"
         parent = current.parent_node or ""
-        root_idx = self._tab_bar.currentIndex()
-        return f"{root_idx}/{label}/{parent}"
+        roots = self.graph_stack.roots()
+        idx = self._tab_bar.currentIndex()
+        root = roots[idx] if 0 <= idx < len(roots) else None
+        token = self._root_tokens.get(id(root), "?") if root is not None else "?"
+        return f"{token}/{label}/{parent}"
 
     def _collect_node_pin_paths(self, node) -> list[str]:
         paths: list[str] = []
@@ -348,6 +353,8 @@ class MainWindow(QMainWindow):
         if label and not graph.label:
             graph.label = label
         self.graph_stack.open_root(graph)
+        self._root_tokens[id(graph)] = str(self._next_token)
+        self._next_token += 1
         self._tab_bar.blockSignals(True)
         self._tab_bar.addTab(graph.label or '(이름 없음)')
         self._tab_bar.setCurrentIndex(self._tab_bar.count() - 1)
@@ -361,9 +368,12 @@ class MainWindow(QMainWindow):
         self._render_current()
 
     def _on_tab_close(self, index: int) -> None:
-        self.graph_stack.select_root(index)
-        key = self._current_graph_key()
-        self.layout_overrides.clear_graph(key)
+        roots = self.graph_stack.roots()
+        if 0 <= index < len(roots):
+            root = roots[index]
+            token = self._root_tokens.pop(id(root), None)
+            if token is not None:
+                self.layout_overrides.clear_by_prefix(f"{token}/")
         self._tab_bar.blockSignals(True)
         self._tab_bar.removeTab(index)
         self._tab_bar.blockSignals(False)
