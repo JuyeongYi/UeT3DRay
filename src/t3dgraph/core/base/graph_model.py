@@ -5,6 +5,25 @@ from typing import Any
 
 
 @dataclass
+class DroppedObject:
+    """인터프리터가 처리하지 못해 그래프에 들어가지 못한 객체."""
+    name: str
+    cls: str | None
+    reason: str            # "unknown class" | "depth cap" | "graph at top" | "no resolver"
+    parent_obj: str | None # 부모 객체명 (재귀 손실 추적). top-level이면 None
+
+
+@dataclass
+class InterpreterDiagnostics:
+    """인터프리터 한 사이클의 정량 진단."""
+    objects_dropped: list[DroppedObject] = field(default_factory=list)
+    extracted_per_class: dict[str, int] = field(default_factory=dict)
+    max_depth_seen: int = 0
+    contained_graph_count: int = 0
+    external_refs_unresolved: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Pin:
     name: str
     cpp_type: str | None
@@ -54,6 +73,7 @@ class GraphModel:
     label: str | None = None                                # F5: 브레드크럼/탭 라벨
     parent_node: str | None = None                          # F6: 자식 그래프의 부모 노드명
     boundary_refs: list[str] = field(default_factory=list)  # §7.4 경계 핀 참조
+    diagnostics: InterpreterDiagnostics | None = None
 
     def node_by_name(self, name: str) -> Node | None:
         for n in self.nodes:

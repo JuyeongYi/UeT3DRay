@@ -2,7 +2,10 @@
 from __future__ import annotations
 from ..rigvm import types as t
 from ...core.base.interpreter import AbstractGraphInterpreter
-from ...core.base.graph_model import GraphModel, Node, Pin, Link, VariableRef
+from ...core.base.graph_model import (
+    GraphModel, Node, Pin, Link, VariableRef,
+    InterpreterDiagnostics, DroppedObject,
+)
 from ...core.t3d.document import T3DDocument
 from ...core.t3d.objects import T3DObject
 from ...core.t3d.values import Value, Scalar, QuotedString, Struct
@@ -58,7 +61,11 @@ def _build_pin(obj: T3DObject) -> Pin:
 
 class RigVMGraphInterpreter(AbstractGraphInterpreter):
     def interpret(self, doc: T3DDocument) -> GraphModel:
-        return self._interpret_objects(doc.objects, label=None, parent_node=None)
+        diag = InterpreterDiagnostics()
+        g = self._interpret_objects(
+            doc.objects, label=None, parent_node=None, diagnostics=diag)
+        g.diagnostics = diag
+        return g
 
     def _interpret_objects(
         self,
@@ -66,20 +73,29 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         *,
         label: str | None,
         parent_node: str | None,
+        diagnostics: InterpreterDiagnostics | None = None,
         depth: int = 0,
         max_depth: int = 64,
     ) -> GraphModel:
+        if diagnostics is None:
+            diagnostics = InterpreterDiagnostics()
         g = GraphModel(label=label, parent_node=parent_node)
+        diagnostics.max_depth_seen = max(diagnostics.max_depth_seen, depth)
         if depth >= max_depth:
             g.warnings.append(
                 f"interpret 깊이 {depth} >= {max_depth} — 추가 추출 중단 (label={label or '?'})"
             )
+            for obj in objects:
+                diagnostics.objects_dropped.append(DroppedObject(
+                    name=obj.name or "?", cls=obj.cls,
+                    reason="depth cap", parent_obj=parent_node))
             return g
         for obj in objects:
             if t.is_link_class(obj.cls):
                 self._add_link(obj, g)
             elif t.is_node_class(obj.cls):
-                self._add_node(obj, g, depth=depth, max_depth=max_depth)
+                self._add_node(obj, g, diagnostics=diagnostics,
+                               depth=depth, max_depth=max_depth)
             elif obj.cls is None:
                 continue
             elif t.is_graph_class(obj.cls):
@@ -90,8 +106,14 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                     f"최상위에 RigVMGraph 객체 '{obj.name or '?'}' 발견 — "
                     f"자식 {len(obj.children)}개가 추출되지 않음"
                 )
+                diagnostics.objects_dropped.append(DroppedObject(
+                    name=obj.name or "?", cls=obj.cls,
+                    reason="graph at top", parent_obj=parent_node))
                 continue
             else:
+                diagnostics.objects_dropped.append(DroppedObject(
+                    name=obj.name or "?", cls=obj.cls,
+                    reason="unknown class", parent_obj=parent_node))
                 self._add_generic(obj, g)
         known = {n.name for n in g.nodes}
         for link in g.links:
@@ -107,7 +129,9 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         if src and tgt:
             g.links.append(Link(source_path=src, target_path=tgt))
 
-    def _add_node(self, obj: T3DObject, g: GraphModel, *, depth: int = 0, max_depth: int = 64) -> None:
+    def _add_node(self, obj: T3DObject, g: GraphModel, *,
+                  diagnostics: InterpreterDiagnostics,
+                  depth: int = 0, max_depth: int = 64) -> None:
         summary, category = role_for(obj)
         node = Node(
             name=obj.name or "",
@@ -122,11 +146,13 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         )
         # ContainedGraph 자식 전부 수집 — 첫 개는 subgraph, 나머지는 extra_subgraphs (C-A1)
         graph_children = [c for c in obj.children if t.is_graph_class(c.cls)]
+        diagnostics.contained_graph_count += len(graph_children)
         for i, child in enumerate(graph_children):
             sub = self._interpret_objects(
                 child.children,
                 label=f"{node.name}/{child.name or 'graph'}",
                 parent_node=node.name,
+                diagnostics=diagnostics,
                 depth=depth + 1,
                 max_depth=max_depth,
             )
@@ -142,6 +168,10 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 f"첫 개는 subgraph, 나머지 {len(graph_children) - 1}개는 extra_subgraphs"
             )
         g.nodes.append(node)
+        suffix = (obj.cls or "").rsplit(".", 1)[-1]
+        diagnostics.extracted_per_class[suffix] = (
+            diagnostics.extracted_per_class.get(suffix, 0) + 1
+        )
         if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
             self._add_variable_ref(node, g)
 
