@@ -46,6 +46,19 @@ def _position(obj: T3DObject) -> tuple[float, float] | None:
         return None
 
 
+def _sort_array_subpins(subpins: list[Pin]) -> list[Pin]:
+    """T3D 배열 직렬화 quirk 정정.
+
+    UE는 array RigVMPin 자식을 인덱스 역순(10,9,...,0)으로 serialize한다.
+    name이 전부 digit-only이면 int 순으로 재정렬. 그 외엔 원순서 유지.
+    """
+    if not subpins:
+        return subpins
+    if all(p.name.isdigit() for p in subpins):
+        return sorted(subpins, key=lambda p: int(p.name))
+    return subpins
+
+
 def _build_pin(obj: T3DObject) -> Pin:
     cpp_type = _text(obj.properties.get("CPPType"))
     return Pin(
@@ -54,7 +67,7 @@ def _build_pin(obj: T3DObject) -> Pin:
         direction=_text(obj.properties.get("Direction")),
         default_value=_text(obj.properties.get("DefaultValue")),
         is_execution=t.is_execution_cpp_type(cpp_type),
-        subpins=[_build_pin(c) for c in obj.children],
+        subpins=_sort_array_subpins([_build_pin(c) for c in obj.children]),
         raw=dict(obj.properties),
     )
 
