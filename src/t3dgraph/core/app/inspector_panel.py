@@ -48,6 +48,7 @@ class InspectorPanel(NavigablePanel):
         layout.addWidget(self._title)
         layout.addWidget(self._tree)
         self._tree.itemActivated.connect(self._on_activated)
+        header.sectionResized.connect(self._on_section_resized)
         self._items: dict[str, QTreeWidgetItem] = {}
 
     def show_node(self, node: Node | None, graph: GraphModel) -> None:
@@ -89,14 +90,27 @@ class InspectorPanel(NavigablePanel):
         for sub in pin.subpins:
             self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
 
+    _CELL_PAD_PX = 12  # 셀 좌우 패딩 추정치
+
     def _apply_truncation_tooltips(self, item: QTreeWidgetItem, texts: list[str]) -> None:
-        """셀 텍스트가 컬럼 폭을 초과하면 ToolTipRole에 풀 텍스트를 박는다."""
+        """셀 텍스트가 라이브 컬럼 폭을 초과하면 ToolTipRole에 풀 텍스트를 박는다.
+
+        `self._tree.columnWidth(i)` 로 현재 폭을 읽어 Interactive resize 반영.
+        미초과 컬럼은 빈 문자열로 명시 초기화(item 재사용 대비 idempotent).
+        """
         fm = QFontMetrics(self._tree.font())
         for i, text in enumerate(texts):
-            if not text:
-                continue
-            if fm.horizontalAdvance(text) > self._col_widths[i] - 12:
+            live_w = self._tree.columnWidth(i)
+            if text and fm.horizontalAdvance(text) > live_w - self._CELL_PAD_PX:
                 item.setToolTip(i, text)
+            else:
+                item.setToolTip(i, "")
+
+    def _on_section_resized(self, _logical: int, _old: int, _new: int) -> None:
+        """컬럼 폭 변경 시 모든 item 툴팁 재평가."""
+        for item in self._items.values():
+            texts = [item.text(i) for i in range(self._tree.columnCount())]
+            self._apply_truncation_tooltips(item, texts)
 
     def _on_activated(self, item: QTreeWidgetItem, _column: int) -> None:
         peer = item.data(0, _PEER_ROLE)
