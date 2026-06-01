@@ -31,6 +31,19 @@ class AssetResolver:
     def resolve_node_name(self, name: str):
         return self._index.get(name)
 
+    def _extract_target_path(self, ref_path: str) -> str | None:
+        if not ref_path:
+            return None
+        m = re.search(r"Class'([^']+)'", ref_path)
+        if m:
+            return m.group(1)
+        quoted = re.findall(r"'([^']+)'", ref_path)
+        if quoted:
+            return quoted[-1]
+        if ":" in ref_path:
+            return ref_path
+        return None
+
     def resolve_function_reference(self, ref_path: str) -> "T3DObject | None":
         """FunctionReferenceNode의 ReferencedNode 경로에서 함수 이름 추출 후 인덱스 조회.
 
@@ -38,8 +51,9 @@ class AssetResolver:
             "Class'/Game/.../FunctionLibrary.FunctionLibrary:FunctionLibrary_C.MyFunc'"
         반환: 해당 이름으로 등록된 T3DObject, 없으면 None.
         """
-        m = re.search(r"'([^']+)'", ref_path)
-        inner = m.group(1) if m else ref_path
+        inner = self._extract_target_path(ref_path)
+        if inner is None:
+            return None
         if ":" in inner:
             sub_path = inner.split(":", 1)[1]
             func_name = sub_path.rsplit(".", 1)[-1]

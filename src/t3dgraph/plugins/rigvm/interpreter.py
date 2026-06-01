@@ -228,23 +228,25 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
             )
         # F20: FunctionReferenceNode — resolver로 외부 함수 subgraph 연결
         if (
-            self._resolver is not None
-            and node.subgraph is None
+            node.subgraph is None
             and (obj.cls or "").rsplit(".", 1)[-1] == "RigVMFunctionReferenceNode"
         ):
             ref_path = _text(obj.properties.get("ReferencedNode"))
-            if ref_path is None:
-                header = obj.properties.get("ReferencedFunctionHeader")
-                if isinstance(header, Struct):
-                    lib_ptr = dict(header.items).get("LibraryPointer")
-                    if isinstance(lib_ptr, Struct):
-                        ref_path = _text(dict(lib_ptr.items).get("LibraryNodePath"))
-            if ref_path:
+            if not ref_path:
+                ref_path = self._extract_lib_node_path_from_header(obj)
+            if not ref_path:
+                diagnostics.external_refs_unresolved.append(
+                    f"{obj.name or '?'} (header parse failed)"
+                )
+            elif self._resolver is not None:
                 ext_obj = self._resolver.resolve_function_reference(ref_path)
-                if ext_obj is not None:
+                if ext_obj is None:
+                    diagnostics.external_refs_unresolved.append(ref_path)
+                else:
                     ext_graph_children = [
                         c for c in ext_obj.children if t.is_graph_class(c.cls)
                     ]
+                    diagnostics.contained_graph_count += len(ext_graph_children)
                     for j, ext_child in enumerate(ext_graph_children):
                         ext_sub = self._interpret_objects(
                             ext_child.children,
@@ -258,10 +260,8 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                             node.subgraph = ext_sub
                         else:
                             node.extra_subgraphs.append(ext_sub)
-                    if not ext_graph_children:
-                        diagnostics.external_refs_unresolved.append(ref_path or "?")
-                else:
-                    diagnostics.external_refs_unresolved.append(ref_path)
+            else:
+                diagnostics.external_refs_unresolved.append(ref_path)
         g.nodes.append(node)
         suffix = (obj.cls or "").rsplit(".", 1)[-1]
         diagnostics.extracted_per_class[suffix] = (
@@ -279,6 +279,39 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 cpp_type=val_pin.cpp_type if val_pin else None,
                 node_name=node.name,
             ))
+
+    def _extract_lib_node_path_from_header(self, obj: T3DObject) -> str | None:
+        header = obj.properties.get("ReferencedFunctionHeader")
+        if not isinstance(header, Struct):
+            return None
+        known = self._walk_struct(header, ("LibraryPointer", "LibraryNodePath"))
+        if known is not None:
+            return known
+        return self._walk_struct_find_key(header, "LibraryNodePath")
+
+    def _walk_struct(self, value, path: tuple) -> str | None:
+        cur = value
+        for key in path:
+            if not isinstance(cur, Struct):
+                return None
+            cur = next((v for k, v in cur.items if k == key), None)
+            if cur is None:
+                return None
+        return _text(cur)
+
+    def _walk_struct_find_key(self, value, target_key: str) -> str | None:
+        if not isinstance(value, Struct):
+            return None
+        for k, v in value.items:
+            if k == target_key:
+                text = _text(v)
+                if text:
+                    return text
+            if isinstance(v, Struct):
+                found = self._walk_struct_find_key(v, target_key)
+                if found:
+                    return found
+        return None
 
     def _add_generic(self, obj: T3DObject, g: GraphModel) -> None:
         g.warnings.append(f"알 수 없는 클래스 '{obj.cls}' — 제네릭 노드로 폴백")
