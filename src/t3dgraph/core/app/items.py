@@ -108,6 +108,7 @@ class NodeItem(QGraphicsRectItem):
 
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
+        self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
         for i, row in enumerate(rows):
             cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
             self._rows[row.path] = cy
@@ -126,9 +127,21 @@ class NodeItem(QGraphicsRectItem):
                 else:
                     dot.setBrush(QBrush(QColor(200, 200, 120)))
                     dot.setPen(QPen(Qt.NoPen))
+            indent = 18 + row.depth * 12
+            if row.has_children:
+                arrow_char = "▼" if row.path in expanded_paths else "▶"
+                arrow = QGraphicsSimpleTextItem(arrow_char, self)
+                arrow.setBrush(QBrush(QColor(210, 210, 210)))
+                if is_input:
+                    ax = indent - 14
+                    zone = (0.0, indent - 2)
+                else:
+                    ax = NODE_WIDTH - indent + 2
+                    zone = (NODE_WIDTH - indent + 2, NODE_WIDTH)
+                arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
+                self._arrow_zones[row.path] = (zone[0], zone[1], cy)
             label = QGraphicsSimpleTextItem(row.pin.name, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
-            indent = 8 + row.depth * 12
             lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
@@ -152,6 +165,21 @@ class NodeItem(QGraphicsRectItem):
             self._bus.enter_subgraph_requested.emit(self.node.name)
             return True
         return False
+
+    def toggle_at_pos(self, pos: QPointF) -> bool:
+        """화살표 zone 좌표에 있으면 토글 발사. 발사 여부 반환."""
+        for path, (x0, x1, cy) in self._arrow_zones.items():
+            if x0 <= pos.x() <= x1 and abs(pos.y() - cy) <= ROW_HEIGHT / 2:
+                if self._bus is not None:
+                    self._bus.pin_toggle_requested.emit(path)
+                return True
+        return False
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt override)
+        if self.toggle_at_pos(event.pos()):
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 (Qt override)
         y = event.pos().y()
