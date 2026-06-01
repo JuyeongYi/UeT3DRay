@@ -473,9 +473,8 @@ class MainWindow(QMainWindow):
             action = self._view_mode_actions.get(mode_id)
             if action is None:
                 continue
-            blocker = QSignalBlocker(action)
-            action.setChecked(value)
-            del blocker  # 명시적 해제 — context manager 대안
+            with QSignalBlocker(action):
+                action.setChecked(value)
 
     def _on_tab_close(self, index: int) -> None:
         roots = self.graph_stack.roots()
