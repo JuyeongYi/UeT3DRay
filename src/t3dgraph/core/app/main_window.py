@@ -302,7 +302,11 @@ class MainWindow(QMainWindow):
         self._schedule_save_state()
 
     def _apply_persistent_state(self, path: str) -> None:
-        state = load_state(path)
+        state, error = load_state(path)
+        if error:
+            self.statusBar().showMessage(
+                f"영속 상태 로드 실패 — 디폴트로 폴백: {error}", 10000
+            )
         if state.schema_version == 1 and not state.per_graph:
             key = self._current_graph_key()
             for node, (x, y) in state.node_positions.items():

@@ -119,15 +119,28 @@ def _state_path(file_path: str) -> Path:
     return _state_dir() / f"{digest}.json"
 
 
-def load_state(file_path: str) -> PersistentState:
+def load_state(file_path: str) -> tuple[PersistentState, str | None]:
+    """영속 상태 로드. 폴백 시 (빈 state, 사유) — 사유 None이면 정상."""
     p = _state_path(file_path)
     if not p.exists():
-        return PersistentState()
+        return PersistentState(), None
     try:
         with p.open("r", encoding="utf-8") as f:
-            return PersistentState.from_dict(json.load(f))
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        return PersistentState()
+            data = json.load(f)
+    except json.JSONDecodeError as exc:
+        bak = p.with_suffix(p.suffix + ".bak")
+        try:
+            p.replace(bak)
+        except OSError:
+            pass
+        return PersistentState(), f"JSON 해독 실패 — {bak.name}으로 백업: {exc}"
+    version = data.get("schema_version", _SCHEMA_VERSION)
+    if version not in (1, _SCHEMA_VERSION):
+        return PersistentState(), f"미지원 schema_version={version} — 무시"
+    try:
+        return PersistentState.from_dict(data), None
+    except (KeyError, TypeError, ValueError) as exc:
+        return PersistentState(), f"구조 오류 — 무시: {exc}"
 
 
 def save_state(file_path: str, state: PersistentState) -> None:

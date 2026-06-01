@@ -39,7 +39,8 @@ def test_save_then_load_round_trip() -> None:
         },
     )
     save_state("/test/file.t3d.txt", state)
-    loaded = load_state("/test/file.t3d.txt")
+    loaded, error = load_state("/test/file.t3d.txt")
+    assert error is None
     assert loaded.schema_version == 2
     assert "root/" in loaded.per_graph
     gs = loaded.per_graph["root/"]
@@ -48,7 +49,8 @@ def test_save_then_load_round_trip() -> None:
 
 
 def test_load_missing_returns_empty() -> None:
-    loaded = load_state("/non/existent/file.t3d.txt")
+    loaded, error = load_state("/non/existent/file.t3d.txt")
+    assert error is None
     assert loaded.per_graph == {}
     assert loaded.schema_version == 2
 
@@ -57,7 +59,10 @@ def test_load_corrupted_json_returns_empty() -> None:
     p = _state_path("/test/x.t3d.txt")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("{ broken", encoding="utf-8")
-    assert load_state("/test/x.t3d.txt") == PersistentState()
+    state, error = load_state("/test/x.t3d.txt")
+    assert state == PersistentState()
+    assert error is not None and "JSON" in error
+    assert p.with_suffix(p.suffix + ".bak").exists()
 
 
 def test_future_schema_version_returns_empty() -> None:
@@ -65,7 +70,23 @@ def test_future_schema_version_returns_empty() -> None:
     p = _state_path("/test/x.t3d.txt")
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text('{"schema_version": 999}', encoding="utf-8")
-    assert load_state("/test/x.t3d.txt") == PersistentState()
+    state, error = load_state("/test/x.t3d.txt")
+    assert state == PersistentState()
+    assert error is not None and "schema_version" in error
+    assert not p.with_suffix(p.suffix + ".bak").exists()
+
+
+def test_load_state_returns_tuple_normal() -> None:
+    save_state("/test/x.t3d.txt", PersistentState(schema_version=2, per_graph={}))
+    state, error = load_state("/test/x.t3d.txt")
+    assert error is None
+    assert state.schema_version == 2
+
+
+def test_load_state_missing_returns_empty_no_error() -> None:
+    state, error = load_state("/non/existent/file2.t3d.txt")
+    assert state == PersistentState()
+    assert error is None
 
 
 def test_save_is_atomic() -> None:
@@ -88,7 +109,8 @@ def test_round_trip_preserves_position_floats() -> None:
         per_graph={"root/": GraphState(node_positions={"N1": (-1.5, 2.7e3)})},
     )
     save_state("/test/f.t3d.txt", state)
-    loaded = load_state("/test/f.t3d.txt")
+    loaded, error = load_state("/test/f.t3d.txt")
+    assert error is None
     assert loaded.per_graph["root/"].node_positions == {"N1": (-1.5, 2700.0)}
 
 
@@ -109,7 +131,8 @@ def test_per_graph_round_trip() -> None:
         },
     )
     save_state("/test/f.t3d.txt", state)
-    loaded = load_state("/test/f.t3d.txt")
+    loaded, error = load_state("/test/f.t3d.txt")
+    assert error is None
     assert loaded.schema_version == 2
     assert "rootA/" in loaded.per_graph
     assert loaded.per_graph["rootA/"].node_positions == {"N1": (1.0, 2.0)}
@@ -128,7 +151,8 @@ def test_schema_v1_absorbed() -> None:
         "fan_in_highlight": False,
         "hidden_node_types": [],
     }), encoding="utf-8")
-    loaded = load_state("/test/legacy.t3d.txt")
+    loaded, error = load_state("/test/legacy.t3d.txt")
+    assert error is None
     assert loaded.schema_version == 1
     assert loaded.node_positions == {"N1": (10.0, 20.0)}
     assert loaded.per_graph == {}
