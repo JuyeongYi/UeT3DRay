@@ -53,10 +53,10 @@ def test_arrow_zone_click_emits_toggle(qtbot, monkeypatch) -> None:
     emitted: list[str] = []
     assert item.bus is not None
     item.bus.pin_toggle_requested.connect(lambda p: emitted.append(p))
-    # struct 핀 P 의 화살표 위치 추정 — input pin은 row 좌측 들여쓰기 앞
-    from t3dgraph.core.app.items import HEADER_HEIGHT, ROW_HEIGHT
+    # struct 핀 P 의 화살표 위치 추정 — input pin zone: (PIN_RADIUS+2, indent-2)
+    from t3dgraph.core.app.items import HEADER_HEIGHT, ROW_HEIGHT, PIN_RADIUS
     row_y = HEADER_HEIGHT + 0 * ROW_HEIGHT + ROW_HEIGHT / 2
-    click_pos = QPointF(4, row_y)
+    click_pos = QPointF(PIN_RADIUS + 4, row_y)  # zone 안쪽
     item.toggle_at_pos(click_pos)
     assert emitted == ["N.P"]
 

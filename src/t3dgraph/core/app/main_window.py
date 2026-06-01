@@ -28,7 +28,10 @@ class MainWindow(QMainWindow):
         self.resize(1200, 800)
 
         self.view_state = ViewState()
-        self.pin_colors = PinColorTable.load()
+        try:
+            self.pin_colors: PinColorTable | None = PinColorTable.load()
+        except Exception:
+            self.pin_colors = None
         self.graph: GraphModel | None = None
         self._flow = None
 
@@ -96,8 +99,21 @@ class MainWindow(QMainWindow):
         view_menu.addAction("핀 색 팔레트 리셋").triggered.connect(self._on_reset_palette)
 
     def _on_reset_palette(self) -> None:
-        PinColorTable.reset_user_file()
-        self.pin_colors = PinColorTable.load()
+        from PySide6.QtWidgets import QMessageBox
+        ans = QMessageBox.question(
+            self, "팔레트 리셋",
+            "사용자 설정 파일을 번들 디폴트로 덮어씁니다. 계속하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if ans != QMessageBox.Yes:
+            return
+        try:
+            PinColorTable.reset_user_file()
+            self.pin_colors = PinColorTable.load()
+        except Exception as e:
+            self.statusBar().showMessage(f"팔레트 리셋 실패: {e}", 5000)
+            return
         self._rebuild_scene()
         self.statusBar().showMessage("핀 색 팔레트를 디폴트로 되돌렸습니다.", 4000)
 

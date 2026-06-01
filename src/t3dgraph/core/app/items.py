@@ -128,21 +128,27 @@ class NodeItem(QGraphicsRectItem):
                     dot.setBrush(QBrush(QColor(200, 200, 120)))
                     dot.setPen(QPen(Qt.NoPen))
             indent = 18 + row.depth * 12
+            arrow_w = 0.0
             if row.has_children:
                 arrow_char = "▼" if row.path in expanded_paths else "▶"
                 arrow = QGraphicsSimpleTextItem(arrow_char, self)
                 arrow.setBrush(QBrush(QColor(210, 210, 210)))
+                arrow_w = arrow.boundingRect().width()
                 if is_input:
                     ax = indent - 14
-                    zone = (0.0, indent - 2)
+                    # dot x∈[-PIN_RADIUS, PIN_RADIUS] → zone starts after dot
+                    zone = (PIN_RADIUS + 2, indent - 2)
                 else:
                     ax = NODE_WIDTH - indent + 2
-                    zone = (NODE_WIDTH - indent + 2, NODE_WIDTH)
+                    zone = (NODE_WIDTH - indent + 2, NODE_WIDTH - PIN_RADIUS - 2)
                 arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
                 self._arrow_zones[row.path] = (zone[0], zone[1], cy)
             label = QGraphicsSimpleTextItem(row.pin.name, self)
             label.setBrush(QBrush(QColor(210, 210, 210)))
-            lx = indent if is_input else NODE_WIDTH - 8 - label.boundingRect().width()
+            if is_input:
+                lx = indent
+            else:
+                lx = NODE_WIDTH - 8 - label.boundingRect().width() - arrow_w
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
     @property

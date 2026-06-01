@@ -60,21 +60,23 @@ def test_none_falls_back_to_default(bundled_table: PinColorTable) -> None:
 
 
 def test_first_load_copies_bundle_to_user_dir(tmp_path: Path, monkeypatch) -> None:
+    from importlib import resources as _res
     monkeypatch.setattr(PinColorTable, "_user_dir", classmethod(lambda cls: tmp_path))
     user_file = tmp_path / "pin_colors.toml"
     assert not user_file.exists()
     PinColorTable.load()
     assert user_file.exists()
     # 번들과 바이트 동일
-    bundle = PinColorTable._bundle_path()
-    assert user_file.read_bytes() == bundle.read_bytes()
+    bundle_bytes = _res.files("t3dgraph.core.app.resources").joinpath("pin_colors.toml").read_bytes()
+    assert user_file.read_bytes() == bundle_bytes
 
 
 def test_reset_user_file_overwrites(tmp_path: Path, monkeypatch) -> None:
+    from importlib import resources as _res
     monkeypatch.setattr(PinColorTable, "_user_dir", classmethod(lambda cls: tmp_path))
     PinColorTable.load()
     user_file = tmp_path / "pin_colors.toml"
     user_file.write_text("[palette]\ndefault = \"#000000\"\n", encoding="utf-8")
     PinColorTable.reset_user_file()
-    bundle = PinColorTable._bundle_path()
-    assert user_file.read_bytes() == bundle.read_bytes()
+    bundle_bytes = _res.files("t3dgraph.core.app.resources").joinpath("pin_colors.toml").read_bytes()
+    assert user_file.read_bytes() == bundle_bytes

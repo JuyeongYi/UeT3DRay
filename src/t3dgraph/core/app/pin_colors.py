@@ -1,7 +1,6 @@
 """핀 색 팔레트 룩업 — TOML 기반 3계층 (special -> bucket -> palette)."""
 from __future__ import annotations
 import os
-import shutil
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -9,6 +8,8 @@ from importlib import resources
 from pathlib import Path
 
 from PySide6.QtGui import QColor
+
+_FALLBACK_COLOR = QColor("#C8C878")  # palette.default 키 누락 시 하드코딩 안전망
 
 
 @dataclass(frozen=True)
@@ -43,10 +44,15 @@ class PinColorTable:
         user_file = cls._user_dir() / "pin_colors.toml"
         if not user_file.exists():
             user_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(cls._bundle_path(), user_file)
+            bundle_bytes = resources.files(
+                "t3dgraph.core.app.resources"
+            ).joinpath("pin_colors.toml").read_bytes()
+            user_file.write_bytes(bundle_bytes)
         with user_file.open("rb") as f:
             data = tomllib.load(f)
         palette = {k: QColor(v) for k, v in data.get("palette", {}).items()}
+        if "default" not in palette:
+            palette["default"] = _FALLBACK_COLOR
         bucket = dict(data.get("bucket", {}))
         special = data.get("special", {})
         return cls(
@@ -61,26 +67,30 @@ class PinColorTable:
         """사용자 파일을 번들로 덮어쓰고 경로를 반환한다."""
         user_file = cls._user_dir() / "pin_colors.toml"
         user_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(cls._bundle_path(), user_file)
+        bundle_bytes = resources.files(
+            "t3dgraph.core.app.resources"
+        ).joinpath("pin_colors.toml").read_bytes()
+        user_file.write_bytes(bundle_bytes)
         return user_file
 
     def resolve(self, cpp_type: str | None) -> ResolvedColor:
+        default = self._palette.get("default", _FALLBACK_COLOR)
         if cpp_type is None:
-            return ResolvedColor(color=self._palette["default"], is_array=False)
-        # special — array: 내부 타입 재귀
+            return ResolvedColor(color=default, is_array=False)
+        # special — array: 한 레벨만 벗김 (단일 레벨 TArray<T> 전용)
         if cpp_type.startswith(self._array_marker):
-            inner = cpp_type[len(self._array_marker):].rstrip(">").rstrip()
+            inner = cpp_type[len(self._array_marker):-1]
             inner_resolved = self.resolve(inner)
             return ResolvedColor(color=inner_resolved.color, is_array=True)
         # special — exec
         if self._exec_marker in cpp_type:
-            return ResolvedColor(color=self._palette.get("exec", self._palette["default"]),
+            return ResolvedColor(color=self._palette.get("exec", default),
                                  is_array=False)
         # bucket -> palette
         key = self._bucket.get(cpp_type)
         if key is not None and key in self._palette:
             return ResolvedColor(color=self._palette[key], is_array=False)
-        return ResolvedColor(color=self._palette["default"], is_array=False)
+        return ResolvedColor(color=default, is_array=False)
 
     @classmethod
     def _user_dir(cls) -> Path:
@@ -90,10 +100,3 @@ class PinColorTable:
         xdg = os.environ.get("XDG_CONFIG_HOME")
         base = Path(xdg) if xdg else Path.home() / ".config"
         return base / "t3dgraph"
-
-    @classmethod
-    def _bundle_path(cls) -> Path:
-        with resources.as_file(
-            resources.files("t3dgraph.core.app.resources") / "pin_colors.toml"
-        ) as p:
-            return Path(p)
