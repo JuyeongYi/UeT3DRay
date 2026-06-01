@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`) + **batch ⑩ 1차 완료** (`906decc`, 452 tests). batch ⑩ α·χ·ο·υ 머지, ω·ψ 디스패치 중. 누적 improver findings 60건 (batch ⑨ 53 + batch ⑩ 7).
+상태: 2026-06-01 **batch ⑨ 완전 마감** (`b0464a6`) + **batch ⑩ 완전 마감** (`a0b7328`, 473 tests). 14 슬라이스 머지(μ·ν·ξ·τ·π·φ·σ·ρ + α·χ·ο·υ·ω·ψ). 누적 improver findings 66건 (batch ⑨ 53 + batch ⑩ 13).
 
 ---
 
@@ -266,6 +266,21 @@ batch ⑩ 1차 4 슬라이스. χ는 깨끗하게 머지(findings 0).
 | FEAT-48 (α-C1) | `external_refs_unresolved` 도크 — cls·ref_path·reason 컬럼 + "이 ref를 위한 폴더 지정" 액션. α가 reason을 3가지로 명확히 구분해 데이터 충실. ρ-C1(FEAT-46) 후속 통합. |
 
 **메모 (improver 권고):** **α-A2** F20 진단 디버깅성 회귀 — 작은 패치(ref_path 보존 한 줄)로 회복 가능. ω·ψ 머지 후 또는 별도 hotfix로 즉시 처리 권장. α-A1·α-B1은 정리 슬라이스에 동승(pin walk 통합 ψ와 같은 batch). ο-A2(다이얼로그 타이밍)·υ-B1(QSignalBlocker context manager)는 다음 정리 batch 후보.
+
+### improver batch ⑩ ω·ψ 리뷰 findings (2026-06-01, master a0b7328) — 미처리
+
+batch ⑩ 2차 (영속화 + pin walk 통합).
+
+| ID | 내용 |
+| --- | --- |
+| **ω-A1** | 영속 상태가 활성 `_current_graph_key()`만 저장 — 사용자가 서브그래프 A에서 펼친 핀 → 루트 돌아와 노드 이동 → 저장 시 루트 키만 직렬화, A의 변경 휘발. `_view_states`·`layout_overrides`의 모든 키 dict 직렬화 또는 각 그래프 변경 직후 그 키를 큐에 enqueue. **영속화 가치 절반 손실 시나리오 — 핫픽스 1순위**. |
+| ω-A2 | schema mismatch·JSON decode 실패가 silent reset — 사용자는 설정 사라진 줄 모름. 로그 + statusBar 경고 또는 `.bak` 백업 후 재초기화. |
+| **ψ-A1** | `InterpreterFactory(resolver=...)` 강제로 3rd-party 플러그인 backward break — `inspect.signature` 가드 제거로 RigVM 외 플러그인이 `resolver` 키워드 받지 않으면 즉시 `TypeError`. 마이그레이션 노트(CHANGELOG·spec) + 한 사이클 deprecation(inspect 폴백 유지). |
+| ψ-B1 | `_walk_pin_paths` 모듈 헬퍼가 Pin 재귀 책임 — `Pin.iter_paths(prefix) -> Iterator[str]` 메서드로 옮기면 `GraphModel.iter_pin_paths`는 단순 위임. `find_pin`도 같은 패턴으로. |
+| ψ-B2 | `_apply_persistent_state`가 ViewState setter 우회 — `vs.expanded_pin_paths = set(...)` 직접 대입. setter(`set_type_hidden` 등) 경유로 향후 invariant 안전. |
+| FEAT-49 (ω-C1) | 영속 상태 export/import — sha256 키 JSON을 사용자가 export → 팀원 import. "이 노드를 이 자리에서 본다" 합의 공유. 데이터 stable이라 비용 작음. |
+
+**메모 (improver 권고):** **ω-A1 (multi-subgraph 키 손실)**·**ψ-A1 (backward break)** 핫픽스 1순위 묶음 가능. 단 ψ-A1은 외부 플러그인 없는 현 상태에선 실제 회귀 0 — 우선순위는 ω-A1 단독으로도 충분. ω-A2(silent reset)·ψ-B1/B2는 정리 batch.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
