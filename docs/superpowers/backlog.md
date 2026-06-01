@@ -5,7 +5,7 @@
 >
 > **처리 규칙 (중요):** 백로그 항목을 실제로 착수할 때는 **반드시 그 시점의 코드를 다시 읽어 finding이 여전히 유효한지 재검토**한다. Phase가 진행되며 코드가 바뀌어 finding이 이미 해소됐거나 형태가 달라졌을 수 있다 — 옛 finding을 그대로 적용하지 말 것.
 
-상태: 2026-05-22 정합화. batch ②(F1~F9) + batch ③(D-A1/C-A1 축) 종료 후 잔존 항목 정리.
+상태: 2026-06-01 정합화. batch ⑨ Spec 1 슬라이스 μ(F10·F12)·ξ(F15) 머지 완료(`806653a`), ν(F13·F18·F19) 디스패치 중. 본 사이클 improver findings 15건 등재.
 
 ---
 
@@ -128,6 +128,37 @@
 | FEAT-31 | 형제 서브그래프 빠른 점프 단축키 — `Alt+Right`/`Alt+]` 등. FEAT-9 연장. |
 
 **메모 (improver 권고):** B1·B2는 누적 신호들의 일관 재확인. 정리 슬라이스 범위 — `cli.py` + `main_window.py` + `panels` 한 묶음.
+
+### improver Slice μ 리뷰 findings (2026-06-01, master ddfa8ea) — 미처리
+
+batch ⑨ Spec 1, F10(핀 타입별 색) + F12(disclosure ▶/▼).
+
+| ID | 내용 |
+| --- | --- |
+| **μ-A1** | 팔레트 로드 실패 무음 처리 — `MainWindow.__init__`에서 `PinColorTable.load()`가 bare `except`로 잡혀 `self.pin_colors = None`이 되면 모든 핀이 노랑 fallback. 사용자가 TOML을 깼는지 알 수 없음. statusBar 메시지/로그/리셋 유도 다이얼로그 중 최소 하나 필요. **위중도 최상** (디버깅 단서 0, 지원 부담 누적). |
+| μ-A2 | 사용자 팔레트 파일 열기·재로드 액션 부재 — "리셋"만 있어 커스터마이즈하려면 `%APPDATA%/t3dgraph/pin_colors.toml`을 수동으로 찾아야 함. "보기 → 팔레트 파일 위치 열기" + "팔레트 재로드". |
+| μ-A3 | disclosure 화살표 hit-zone이 깊은 depth에서 0 이하로 축소 — output 핀 zone이 `indent = 18 + depth*12`이라 nested struct에서 x0 > x1. 최소 폭 보장 또는 zone swap 가드. |
+| μ-B1 | 번들 카피 로직 중복 — `load`·`reset_user_file` 두 메서드에 동일 3줄 복붙. `_copy_bundle_to(user_file)` private helper로 추출. |
+| μ-B2 | `collect_pin_rows`의 PinRow 재구성 — 명시 인자 5개 대신 `dataclasses.replace(cur, has_dot=False)`. 필드 누락 위험 제거. |
+| μ-B3 | 화살표 레이아웃 매직 넘버 산재 — `18 + depth*12`, `indent-14`, `PIN_RADIUS+2`, `NODE_WIDTH-indent+2`를 `_INDENT_BASE`/`_INDENT_PER_DEPTH`/`_ARROW_GLYPH_OFFSET`/`_ARROW_ZONE_PAD` 모듈 상수로. ν 슬라이스 링크 레이아웃과의 충돌 감축. |
+| FEAT-32 (μ-C1) | 핀 dot hover tooltip — `FRotator → struct (#5B8FF9)`, `TArray<bool> → bool (외곽선=array)` 룩업 결과 노출. 학습·디버깅 양쪽. |
+| FEAT-33 (μ-C2) | 팔레트 범례(legend) 도크 — 카테고리별 색 스와치 + 라벨(exec/bool/int/float/name/string/struct/object/default + array outline). 신규 사용자 학습 곡선 단축. |
+| FEAT-34 (μ-C3) | 사용자 TOML hot-reload — `QFileSystemWatcher`로 외부 편집기 저장 시 자동 재로드 + scene rebuild. 팔레트 튜닝 워크플로 끊김 제거. |
+
+### improver Slice ξ 리뷰 findings (2026-06-01, master 806653a) — 미처리
+
+batch ⑨ Spec 1, F15(인스펙터 폭 안정).
+
+| ID | 내용 |
+| --- | --- |
+| ξ-A1 | column-0 indent-aware truncation 누락 — `_apply_truncation_tooltips`의 `fm.horizontalAdvance(text) > live_w - _CELL_PAD_PX` 비교가 트리 들여쓰기를 빼지 않아 깊은 subpin에서 텍스트는 잘리는데 툴팁 미부여. 리뷰어 I-3 동일. `QStyleOptionViewItem` 들여쓰기 반영. |
+| ξ-A2 | 컬럼 폭 영속화 부재 — Interactive 드래그 가능해졌으나 앱 재시작 시 디폴트(140·160·70·120·90)로 리셋. QSettings 저장·복원. 리뷰어 I-4 동일. |
+| ξ-B1 | `_CELL_PAD_PX = 12`이 스타일 무관 추정치 — Qt 스타일별 셀 패딩 차로 한두 픽셀 차이로 툴팁 잘못 부여/누락. `style().pixelMetric(QStyle.PM_HeaderMargin)` 또는 `viewOptions().rect`로 동적 산출. |
+| ξ-B2 | `_on_section_resized` 전체 재평가가 O(items × columns) — 드래그 매 픽셀마다 모든 트리 아이템 순회. 큰 노드(수백 핀)에서 끊김. `_resize_logical` 한 컬럼만 갱신 또는 `QTimer.singleShot(0, ...)`로 코얼레스. |
+| FEAT-35 (ξ-C1) | header 컨텍스트 메뉴 — 컬럼 가시성 토글. 우클릭으로 "상태"·"방향" 등 비주력 컬럼 숨기기. 좁은 도크에서 핀명·타입 가독성 회복. |
+| FEAT-36 (ξ-C2) | inspector 내부 필터 박스 — 핀 이름·타입 부분일치 필터. 핀 수백 개짜리 노드(Orion rig)에서 핵심. |
+
+**메모 (improver 권고):** μ-A1은 사용자 직격 — Spec 2 진입 시 우선 검토 또는 별도 핫픽스 슬라이스 후보. μ-B3는 ν 슬라이스와 같은 파일(items.py) 편집이 임박했으므로 ν 머지 후 즉시 처리하는 게 충돌·재작업 비용 최소.
 
 ### 기능 추가 (spec §3.3 향후 확장)
 
