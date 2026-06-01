@@ -51,8 +51,9 @@ class AssetResolver:
             "Class'/Game/.../FunctionLibrary.FunctionLibrary:FunctionLibrary_C.MyFunc'"
         반환: 해당 이름으로 등록된 T3DObject, 없으면 None.
         """
-        m = re.search(r"'([^']+)'", ref_path)
-        inner = m.group(1) if m else ref_path
+        inner = self._extract_target_path(ref_path)
+        if inner is None:
+            return None
         if ":" in inner:
             sub_path = inner.split(":", 1)[1]
             func_name = sub_path.rsplit(".", 1)[-1]
