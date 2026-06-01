@@ -339,7 +339,7 @@ class MainWindow(QMainWindow):
     def _save_persistent_state(self) -> None:
         if self._current_file_path is None:
             return
-        all_keys = set(self._view_states.keys()) | set(self.layout_overrides._by_graph.keys())
+        all_keys = set(self._view_states.keys()) | set(self.layout_overrides.graph_keys())
         per_graph: dict[str, GraphState] = {}
         for key in all_keys:
             vs = self._view_states.get(key) or ViewState()
