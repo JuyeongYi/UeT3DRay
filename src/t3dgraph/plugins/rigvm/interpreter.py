@@ -1,5 +1,6 @@
 """RigVM T3DDocument → 추상 GraphModel."""
 from __future__ import annotations
+from typing import TYPE_CHECKING
 from ..rigvm import types as t
 from ...core.base.interpreter import AbstractGraphInterpreter
 from ...core.base.graph_model import (
@@ -12,6 +13,9 @@ from ...core.t3d.values import Value, Scalar, QuotedString, Struct
 from ...core.t3d.paths import node_of
 from .display_name import display_name_for
 from .role import role_for
+
+if TYPE_CHECKING:
+    from ...core.t3d.resolver import AssetResolver
 
 
 def _text(v: Value | None) -> str | None:
@@ -73,6 +77,9 @@ def _build_pin(obj: T3DObject) -> Pin:
 
 
 class RigVMGraphInterpreter(AbstractGraphInterpreter):
+    def __init__(self, resolver: "AssetResolver | None" = None) -> None:
+        self._resolver = resolver
+
     def interpret(self, doc: T3DDocument) -> GraphModel:
         diag = InterpreterDiagnostics()
         g = self._interpret_objects(
@@ -219,6 +226,36 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                 f"노드 '{node.name}'에 RigVMGraph 자식 {len(graph_children)}개 — "
                 f"첫 개는 subgraph, 나머지 {len(graph_children) - 1}개는 extra_subgraphs"
             )
+        # F20: FunctionReferenceNode — resolver로 외부 함수 subgraph 연결
+        if (
+            self._resolver is not None
+            and node.subgraph is None
+            and (obj.cls or "").rsplit(".", 1)[-1] == "RigVMFunctionReferenceNode"
+        ):
+            ref_path = _text(obj.properties.get("ReferencedNode"))
+            if ref_path:
+                ext_obj = self._resolver.resolve_function_reference(ref_path)
+                if ext_obj is not None:
+                    ext_graph_children = [
+                        c for c in ext_obj.children if t.is_graph_class(c.cls)
+                    ]
+                    for j, ext_child in enumerate(ext_graph_children):
+                        ext_sub = self._interpret_objects(
+                            ext_child.children,
+                            label=f"{node.name}/(ext){ext_child.name or 'graph'}",
+                            parent_node=node.name,
+                            diagnostics=diagnostics,
+                            depth=depth + 1,
+                            max_depth=max_depth,
+                        )
+                        if j == 0 and node.subgraph is None:
+                            node.subgraph = ext_sub
+                        else:
+                            node.extra_subgraphs.append(ext_sub)
+                    if not ext_graph_children:
+                        diagnostics.external_refs_unresolved.append(ref_path or "?")
+                else:
+                    diagnostics.external_refs_unresolved.append(ref_path)
         g.nodes.append(node)
         suffix = (obj.cls or "").rsplit(".", 1)[-1]
         diagnostics.extracted_per_class[suffix] = (
