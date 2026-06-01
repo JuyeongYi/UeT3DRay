@@ -31,7 +31,7 @@ def _cls_suffix(obj: T3DObject) -> str | None:
 
 
 def _classify_kind(obj: T3DObject) -> str:
-    suffix = (obj.cls or "").rsplit(".", 1)[-1]
+    suffix = _cls_suffix(obj) or ""
     if suffix in ("RigVMCollapseNode", "RigVMFunctionReferenceNode"):
         return "function"
     if "ContainedGraph" in obj.properties:
@@ -224,7 +224,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         # F20: FunctionReferenceNode — resolver로 외부 함수 subgraph 연결
         if (
             node.subgraph is None
-            and (obj.cls or "").rsplit(".", 1)[-1] == "RigVMFunctionReferenceNode"
+            and _cls_suffix(obj) == "RigVMFunctionReferenceNode"
         ):
             ref_path = _text(obj.properties.get("ReferencedNode"))
             if not ref_path:
@@ -262,7 +262,7 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         diagnostics.extracted_per_class[suffix] = (
             diagnostics.extracted_per_class.get(suffix, 0) + 1
         )
-        if obj.cls and obj.cls.rsplit(".", 1)[-1] == "RigVMVariableNode":
+        if _cls_suffix(obj) == "RigVMVariableNode":
             self._add_variable_ref(node, g)
 
     def _add_variable_ref(self, node: Node, g: GraphModel) -> None:
