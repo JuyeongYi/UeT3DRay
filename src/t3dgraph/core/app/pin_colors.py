@@ -40,6 +40,22 @@ class PinColorTable:
         self._array_marker = array_marker
 
     @classmethod
+    def _from_toml_bytes(cls, data: bytes) -> "PinColorTable":
+        """TOML 바이트에서 PinColorTable 생성 — load/번들 공용 파서."""
+        parsed = tomllib.loads(data.decode("utf-8"))
+        palette = {k: QColor(v) for k, v in parsed.get("palette", {}).items()}
+        if "default" not in palette:
+            palette["default"] = _FALLBACK_COLOR
+        bucket = dict(parsed.get("bucket", {}))
+        special = parsed.get("special", {})
+        return cls(
+            palette=palette,
+            bucket=bucket,
+            exec_marker=special.get("exec_marker", "ExecuteContext"),
+            array_marker=special.get("array_marker", "TArray<"),
+        )
+
+    @classmethod
     def load(cls) -> "PinColorTable":
         user_file = cls._user_dir() / "pin_colors.toml"
         if not user_file.exists():
@@ -49,18 +65,8 @@ class PinColorTable:
             ).joinpath("pin_colors.toml").read_bytes()
             user_file.write_bytes(bundle_bytes)
         with user_file.open("rb") as f:
-            data = tomllib.load(f)
-        palette = {k: QColor(v) for k, v in data.get("palette", {}).items()}
-        if "default" not in palette:
-            palette["default"] = _FALLBACK_COLOR
-        bucket = dict(data.get("bucket", {}))
-        special = data.get("special", {})
-        return cls(
-            palette=palette,
-            bucket=bucket,
-            exec_marker=special.get("exec_marker", "ExecuteContext"),
-            array_marker=special.get("array_marker", "TArray<"),
-        )
+            file_bytes = f.read()
+        return cls._from_toml_bytes(file_bytes)
 
     @classmethod
     def reset_user_file(cls) -> Path:
@@ -79,18 +85,7 @@ class PinColorTable:
         bundle_bytes = resources.files(
             "t3dgraph.core.app.resources"
         ).joinpath("pin_colors.toml").read_bytes()
-        data = tomllib.loads(bundle_bytes.decode("utf-8"))
-        palette = {k: QColor(v) for k, v in data.get("palette", {}).items()}
-        if "default" not in palette:
-            palette["default"] = _FALLBACK_COLOR
-        bucket = dict(data.get("bucket", {}))
-        special = data.get("special", {})
-        return cls(
-            palette=palette,
-            bucket=bucket,
-            exec_marker=special.get("exec_marker", "ExecuteContext"),
-            array_marker=special.get("array_marker", "TArray<"),
-        )
+        return cls._from_toml_bytes(bundle_bytes)
 
     def resolve(self, cpp_type: str | None) -> ResolvedColor:
         default = self._palette.get("default", _FALLBACK_COLOR)

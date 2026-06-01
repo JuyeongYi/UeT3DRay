@@ -109,3 +109,28 @@ def test_load_bundled_defaults_when_user_file_missing(tmp_path: Path, monkeypatc
     # 사용자 파일 없음
     table = PinColorTable._load_bundled_defaults()
     assert table.resolve("float").color.name().upper() == "#7AC74F"
+
+
+def test_from_toml_bytes_parses_minimal() -> None:
+    toml = b"""
+[palette]
+default = "#AABBCC"
+[special]
+exec_marker = "ExecCtx"
+array_marker = "TArray<"
+"""
+    table = PinColorTable._from_toml_bytes(toml)
+    assert table.resolve(None).color == QColor("#AABBCC")
+    r = table.resolve("TArray<bool>")
+    assert r.is_array is True
+
+
+def test_load_uses_from_toml_bytes(tmp_path: Path, monkeypatch) -> None:
+    """load() 결과가 _from_toml_bytes()와 같은 속성을 가지는지 확인."""
+    from importlib import resources as _res
+    monkeypatch.setattr(PinColorTable, "_user_dir", classmethod(lambda cls: tmp_path))
+    bundle_bytes = _res.files("t3dgraph.core.app.resources").joinpath("pin_colors.toml").read_bytes()
+    via_load = PinColorTable.load()
+    via_bytes = PinColorTable._from_toml_bytes(bundle_bytes)
+    assert via_load.resolve("bool").color == via_bytes.resolve("bool").color
+    assert via_load.resolve(None).color == via_bytes.resolve(None).color
