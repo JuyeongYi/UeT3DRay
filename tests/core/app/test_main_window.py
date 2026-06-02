@@ -135,9 +135,9 @@ def test_view_mode_toolbar_has_three_toggles(qtbot):
     w = MainWindow()
     qtbot.addWidget(w)
     labels = {a.text() for a in w._view_mode_actions.values()}
-    assert labels == {"연결된 핀만", "fan-in 강조", "전체 펼침", "전체 접기"}
+    assert labels == {"수정된 핀만", "fan-in 강조", "전체 펼침", "전체 접기"}
     actions = {a.text(): a for a in w._view_mode_actions.values()}
-    assert actions["연결된 핀만"].isCheckable() is True
+    assert actions["수정된 핀만"].isCheckable() is True
     assert actions["fan-in 강조"].isCheckable() is True
     assert actions["전체 펼침"].isCheckable() is False
     assert actions["전체 접기"].isCheckable() is False

@@ -47,6 +47,7 @@ def collect_pin_rows(
     node: Node,
     *,
     connected_subtree: frozenset[str],
+    changed_pins: frozenset[str] = frozenset(),
     connected_only: bool,
     expanded: frozenset[str],
 ) -> list[PinRow]:
@@ -56,7 +57,7 @@ def collect_pin_rows(
         my_dir = _normalize_direction(pin.direction)
         if not my_dir:
             my_dir = parent_dir
-        include_self = (not connected_only) or (path in connected_subtree)
+        include_self = (not connected_only) or (path in connected_subtree) or (path in changed_pins)
         my_idx: int | None = None
         if include_self:
             my_idx = len(rows)
@@ -88,6 +89,7 @@ class NodeItem(QGraphicsRectItem):
     def __init__(
         self, node: Node, *,
         connected_paths: frozenset[str] = frozenset(),
+        changed_paths: frozenset[str] = frozenset(),
         connected_only: bool = False,
         expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
@@ -96,6 +98,7 @@ class NodeItem(QGraphicsRectItem):
     ):
         self._profile: NodeStyleProfile = profile if profile is not None else NodeStyleProfile()
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
+                                changed_pins=changed_paths,
                                 connected_only=connected_only,
                                 expanded=expanded_paths)
         self._node_width = self._compute_width(node, rows)

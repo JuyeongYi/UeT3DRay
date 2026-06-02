@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         toolbar = self.addToolBar("뷰 모드")
         self._view_mode_actions: dict[str, QAction] = {}
         toggles = (
-            ("connected_only", "연결된 핀만",
+            ("connected_only", "수정된 핀만",
              lambda v: self.current_view_state().set_connected_pins_only(v), False),
             ("fan_in_highlight", "fan-in 강조",
              lambda v: self.current_view_state().set_fan_in_highlight(v), True),

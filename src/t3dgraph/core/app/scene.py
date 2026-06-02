@@ -10,6 +10,7 @@ from .layout_overrides import LayoutOverrides
 from .node_profiles import NodeProfileTable
 from .pin_colors import PinColorTable
 from .view_state import ViewState
+from ..app.pin_status import is_changed_from_default
 
 
 class GraphScene(QGraphicsScene):
@@ -46,6 +47,7 @@ class GraphScene(QGraphicsScene):
         self._pin_colors = pin_colors
 
         connected = self._connected_paths_by_node(graph)
+        changed = self._changed_paths_by_node(graph)
         convergence = set(flow.convergence_points) if flow is not None else set()
 
         fallback_i = 0
@@ -59,6 +61,7 @@ class GraphScene(QGraphicsScene):
                 item = NodeItem(
                     node,
                     connected_paths=frozenset(connected.get(node.name, set())),
+                    changed_paths=frozenset(changed.get(node.name, set())),
                     connected_only=vs.connected_pins_only,
                     expanded_paths=frozenset(
                         p for p in vs.expanded_pin_paths if p.startswith(f"{node.name}.")
@@ -99,6 +102,22 @@ class GraphScene(QGraphicsScene):
                 parts = path.split(".")
                 for i in range(2, len(parts) + 1):
                     bucket.add(".".join(parts[:i]))
+        return out
+
+    @staticmethod
+    def _changed_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
+        out: dict[str, set[str]] = {}
+
+        def walk(node_name: str, pin, prefix: str) -> None:
+            path = f"{prefix}.{pin.name}"
+            if is_changed_from_default(pin):
+                out.setdefault(node_name, set()).add(path)
+            for sp in pin.subpins:
+                walk(node_name, sp, path)
+
+        for n in graph.nodes:
+            for p in n.pins:
+                walk(n.name, p, n.name)
         return out
 
     def _add_link(self, link: Link) -> None:
