@@ -23,6 +23,8 @@ class GraphScene(QGraphicsScene):
         # (link_item, src_node, src_sub, dst_node, dst_sub)
         self._links: list[tuple[LinkItem, str, str, str, str]] = []
         self._populating = False  # suppress position_changed during setPos in populate
+        self._graph: GraphModel | None = None
+        self._pin_colors: "PinColorTable | None" = None
 
     def node_item(self, name: str) -> NodeItem | None:
         return self._nodes.get(name)
@@ -38,6 +40,8 @@ class GraphScene(QGraphicsScene):
         self.clear()
         self._nodes = {}
         self._links = []
+        self._graph = graph
+        self._pin_colors = pin_colors
 
         connected = self._connected_paths_by_node(graph)
         convergence = set(flow.convergence_points) if flow is not None else set()
@@ -99,7 +103,16 @@ class GraphScene(QGraphicsScene):
         t_sub = link.target_path.split(".", 1)[1] if "." in link.target_path else ""
         p1 = src.pin_anchor(s_sub, "Output")
         p2 = dst.pin_anchor(t_sub, "Input")
-        item = LinkItem(p1, p2)
+        color = None
+        is_exec = False
+        if self._graph is not None:
+            src_pin = self._graph.find_pin(link.source_path)
+            if src_pin is not None:
+                is_exec = src_pin.is_execution
+                if self._pin_colors is not None:
+                    color = self._pin_colors.resolve(src_pin.cpp_type).color
+        width = 3.0 if is_exec else 1.5
+        item = LinkItem(p1, p2, pen_color=color, width=width, is_execution=is_exec)
         self.addItem(item)
         self._links.append((item, s_node, s_sub, t_node, t_sub))
 

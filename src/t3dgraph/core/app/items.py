@@ -290,10 +290,36 @@ BACKWARD_HANDLE_PX = 120.0
 class LinkItem(QGraphicsPathItem):
     """두 핀 앵커를 잇는 cubic bezier 선."""
 
-    def __init__(self, p1: QPointF, p2: QPointF):
+    def __init__(self, p1: QPointF, p2: QPointF, *,
+                 pen_color: "QColor | None" = None,
+                 width: float = 1.5,
+                 is_execution: bool = False):
         super().__init__(self._build_path(p1, p2))
-        self.setPen(QPen(QColor(170, 170, 170), 1.5))
+        color = pen_color if pen_color is not None else QColor("#AAAAAA")
+        pen = QPen(color, width)
+        if is_execution:
+            pen.setStyle(Qt.CustomDashLine)
+            pen.setDashPattern([4, 3])
+        self.setPen(pen)
         self.setZValue(-1)
+        self._is_execution = is_execution
+        self._dash_phase = 0.0
+        if is_execution:
+            self._setup_animation()
+
+    def _setup_animation(self) -> None:
+        from PySide6.QtCore import QTimer
+        self._anim_timer = QTimer()
+        self._anim_timer.setInterval(50)
+        self._anim_timer.timeout.connect(self._advance_dash)
+        self._anim_timer.start()
+
+    def _advance_dash(self) -> None:
+        self._dash_phase -= 0.5
+        pen = self.pen()
+        pen.setDashOffset(self._dash_phase)
+        self.setPen(pen)
+        self.update()
 
     @staticmethod
     def _build_path(p1: QPointF, p2: QPointF) -> QPainterPath:
