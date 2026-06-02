@@ -80,8 +80,23 @@ def _sort_array_subpins(subpins: list[Pin]) -> list[Pin]:
 
 
 def _sort_pins_exec_first(pins: list[Pin]) -> list[Pin]:
-    """실행 핀(is_execution=True)을 앞쪽으로 안정 정렬. 그 외 순서 보존."""
-    return sorted(pins, key=lambda p: (not p.is_execution,))
+    """실행 핀(is_execution=True)을 앞쪽으로 안정 정렬.
+
+    실행 핀 그룹 내에서 IO(주 실행) > Output(보조 실행) > 기타 순.
+    같은 direction 내에서는 원순서 보존(stable sort).
+    """
+    def _exec_dir_rank(direction: str | None) -> int:
+        d = (direction or "").lower()
+        if d == "io":
+            return 0
+        if d == "output":
+            return 1
+        return 2
+
+    return sorted(pins, key=lambda p: (
+        not p.is_execution,
+        _exec_dir_rank(p.direction) if p.is_execution else 0,
+    ))
 
 
 def _build_pin(obj: T3DObject) -> Pin:

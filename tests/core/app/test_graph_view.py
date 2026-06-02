@@ -11,11 +11,11 @@ def test_view_holds_scene(qtbot):
     assert view.scene() is scene
 
 
-def test_view_drag_mode_is_scroll_hand(qtbot):
+def test_view_drag_mode_is_rubber_band(qtbot):
     from PySide6.QtWidgets import QGraphicsView
     view = GraphView()
     qtbot.addWidget(view)
-    assert view.dragMode() == QGraphicsView.ScrollHandDrag
+    assert view.dragMode() == QGraphicsView.RubberBandDrag
 
 
 def test_fit_does_not_raise_on_populated_scene(qtbot):
