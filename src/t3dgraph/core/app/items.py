@@ -220,7 +220,8 @@ class NodeItem(QGraphicsRectItem):
                 label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
             label = QGraphicsSimpleTextItem(label_text, self)
             label.setBrush(QBrush(label_color))
-            if row.pin.is_execution:
+            is_modified = (row.path in connected_paths) or (row.path in changed_paths)
+            if row.pin.is_execution or is_modified:
                 f = label.font()
                 f.setBold(True)
                 label.setFont(f)
