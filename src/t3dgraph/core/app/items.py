@@ -96,6 +96,13 @@ class NodeItem(QGraphicsRectItem):
         - `_changed_paths`   : frozenset[str]
         - `_connected_only`  : bool
         - `_pin_colors`      : PinColorTable | None
+        - `_header_children` : list[QGraphicsItem]
+            header 영역(title·chevron·var badge) 아이템 추적. `_clear_rows`에서
+            제거되지 않는 것을 명시하기 위한 invariant 마커. 향후 헤더 일괄 조작
+            (예: 헤더 hide·opacity 토글)이 추가되면 이 리스트를 iterate 한다.
+        - `_row_children` : list[QGraphicsItem]
+            행 영역(dot·arrow·label) 아이템. `_clear_rows`의 청소 대상.
+            추가는 반드시 `_add_row_item()` 통로로.
 
     `_expanded_paths`는 `set_expanded_paths()`로 갱신된다 (그 자체가 rebuild 트리거).
     """
@@ -141,7 +148,8 @@ class NodeItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.ItemIsMovable, True)              # F18
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
 
-        self._header_children: list = []
+        # header 영역 아이템 (title·chevron·badge) — _clear_rows 제외 대상
+        self._header_children: list[QGraphicsItem] = []
         title = QGraphicsSimpleTextItem(node.display_name or node.name or "?", self)
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
@@ -186,7 +194,8 @@ class NodeItem(QGraphicsRectItem):
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
         self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
-        self._row_children: list = []
+        # 행 영역 아이템 (dot·arrow·label) — _add_row_item 통해서만 등록
+        self._row_children: list[QGraphicsItem] = []
         self._install_rows(rows)
 
     @staticmethod
