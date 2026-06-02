@@ -79,3 +79,40 @@ class GraphStack:
             self._cur_root = len(self._roots) - 1
         elif index < self._cur_root:
             self._cur_root -= 1
+
+    def jump_to_subgraph(self, target: GraphModel) -> bool:
+        """현재 root 트리에서 target subgraph를 찾아 활성 path로 설정.
+
+        반환: 찾으면 True (current path 갱신), 못 찾으면 False (변화 없음).
+        """
+        if not self._roots or self._cur_root < 0:
+            return False
+        root = self._roots[self._cur_root]
+        path = self._find_path_to(root, target)
+        if path is None:
+            return False
+        self._paths[self._cur_root] = path
+        return True
+
+    def _find_path_to(self, graph: GraphModel, target: GraphModel,
+                      visited: set | None = None) -> list[GraphModel] | None:
+        if visited is None:
+            visited = set()
+        if id(graph) in visited:
+            return None
+        visited.add(id(graph))
+        if graph is target:
+            return [graph]
+        for n in graph.nodes:
+            for sub in self._iter_subgraphs(n):
+                found = self._find_path_to(sub, target, visited)
+                if found is not None:
+                    return [graph] + found
+        return None
+
+    @staticmethod
+    def _iter_subgraphs(node):
+        if node.subgraph is not None:
+            yield node.subgraph
+        for extra in node.extra_subgraphs:
+            yield extra
