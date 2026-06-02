@@ -356,3 +356,65 @@ g1·g4·g5 모두 items.py 만짐 — 1차 병렬 디스패치 후 implementer r
 ## 10. 자율 루프
 
 본 batch는 사용자 직접 트리거 (autonomous loop 종료 후 새 사이클). 5 슬라이스 디스패치 → 머지 → improver 사이클. 시간 budget 자유.
+
+---
+
+## 11. g6 — Parser 재귀 머지 (긴급 추가, F21+F29 근본 원인)
+
+### 11.1 발견
+
+사용자 이미지·실측으로 확인 — `document.py::parse_document`가 단일 부모 내부 sibling 중복을 머지하지 않음. T3D 2-패스 직렬화(선언 + 정의)가 같은 부모의 children에 나타나면:
+
+- 선언 단계 `Begin Object Class=...Pin Name="X"` → properties 비어있음 (Direction=None)
+- 정의 단계 `Begin Object Name="X"` → properties 가득(Direction=Input/Output/IO/Hidden)
+
+Orion 샘플 `HierarchyInstantiateFromPhysicsAsset` 노드 검증:
+- 16 핀 선언 + 16 핀 정의 = **32 children** (선언 16개 cls=RigVMPin Direction=None, 정의 16개 cls=None Direction=Scalar(...))
+- 같은 노드의 같은 핀이 두 번 추출 → 한 번은 LEFT(direction=None), 한 번은 RIGHT/IO/Hidden(정의 direction)
+- 사용자가 본 "출력 핀이 입출력에 모두" 정체
+
+### 11.2 같은 패턴의 F29
+
+`RigVMLink` 객체도 같은 2-패스 직렬화. 선언 단계 link는 SourcePinPath/TargetPinPath 빈값 → `_add_link`의 `if src and tgt` 가드에 걸려 skip. 서브그래프 안 링크 다수 손실(F29 사용자 보고).
+
+### 11.3 디자인
+
+`parse_document`가 머지 후 `_recursive_dedupe` 호출. 모든 깊이의 sibling list를 name 기준으로 합치고 properties 머지.
+
+```python
+def _dedupe_within(objects: list[T3DObject]) -> list[T3DObject]:
+    result, by_name = [], {}
+    for o in objects:
+        if o.name and o.name in by_name:
+            _merge_into(by_name[o.name], o)
+        else:
+            result.append(o)
+            if o.name:
+                by_name[o.name] = o
+    return result
+
+
+def _recursive_dedupe(objects):
+    deduped = _dedupe_within(objects)
+    for obj in deduped:
+        obj.children = _recursive_dedupe(obj.children)
+    return deduped
+
+
+def parse_document(src):
+    raw = parse_objects(src)
+    merged = []
+    _merge_sibling_list(merged, raw)
+    return T3DDocument(objects=_recursive_dedupe(merged))
+```
+
+### 11.4 영향
+
+- F21 핀 중복: 직접 해소
+- F23 파라미터 순서: 16 + 16 → 16 (직렬 순서 정상)
+- F29 서브그래프 exec link: 머지 후 path 채워져 link 정상 추가
+- g1·g2·g4·g5 테스트가 정확한 Direction/single-occurrence 위에서 작동
+
+### 11.5 머지 순서
+
+**g6 우선 머지** — 다른 슬라이스가 정확한 베이스라인 위에서 통합 테스트 통과 가능. g1·g2·g4·g5는 g6 머지 후 rebase.
