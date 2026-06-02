@@ -107,8 +107,37 @@ class _Parser:
         raise ValueParseError("닫히지 않은 따옴표 문자열", self.i)
 
     def _scalar(self) -> Scalar:
+        """Paren-balanced scalar: `(...)` block을 통째 흡수하면서
+        outer terminator(`,` at depth 0, `)` at depth 0)에서만 종료.
+        따옴표 내부는 모든 paren/comma 무시.
+        """
         start = self.i
-        while not self.at_end() and self.s[self.i] not in ",()":
+        depth = 0
+        while not self.at_end():
+            c = self.s[self.i]
+            if c == '"':
+                # quoted segment 안전 통과
+                self.i += 1
+                while not self.at_end() and self.s[self.i] != '"':
+                    if self.s[self.i] == "\\" and self.i + 1 < len(self.s):
+                        self.i += 2
+                        continue
+                    self.i += 1
+                if not self.at_end():
+                    self.i += 1   # 닫는 "
+                continue
+            if c == "(":
+                depth += 1
+                self.i += 1
+                continue
+            if c == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+                self.i += 1
+                continue
+            if c == "," and depth == 0:
+                break
             self.i += 1
         return Scalar(self.s[start:self.i].strip())
 
