@@ -21,6 +21,7 @@ class T3DObject:
     properties: dict[str, Value] = field(default_factory=dict)
     children: list["T3DObject"] = field(default_factory=list)
     line: int = 0
+    skipped_directives: list[str] = field(default_factory=list)
 
 
 _HEADER_ATTR = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S+)')
@@ -61,8 +62,9 @@ def parse_objects(src: str) -> list[T3DObject]:
                 pos += 1
                 return obj, pos
             elif _CUSTOM_PROPERTIES_DIRECTIVE.match(ln.text):
-                # UE EdGraph inline pin metadata — RigVM model 인터프리트와 무관, skip.
-                # 그대로 attribute parser에 넘기면 '값 뒤에 남은 입력' 폭발.
+                # UE EdGraph inline directive. RigVM model 인터프리트와 무관해
+                # properties에 안 넣되, raw line은 진단용으로 보존.
+                obj.skipped_directives.append(ln.text)
                 pos += 1
             elif "=" in ln.text:
                 key, _, raw = ln.text.partition("=")

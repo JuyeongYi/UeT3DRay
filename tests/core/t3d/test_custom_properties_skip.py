@@ -52,6 +52,33 @@ def test_custom_properties_other_subtypes_skipped() -> None:
     assert "CustomProperties Foo" not in objs[0].properties
 
 
+def test_pin_directive_recorded_in_skipped_directives() -> None:
+    """Pin directive는 skip하되 raw line은 skipped_directives에 보존."""
+    src = (
+        'Begin Object Class=X Name="N"\n'
+        '   CustomProperties Pin (PinId=AAA,PinName="P1",)\n'
+        '   ModelNodePath="N"\n'
+        'End Object\n'
+    )
+    objs = parse_objects(src)
+    assert "CustomProperties Pin" in " ".join(objs[0].skipped_directives)
+    assert "PinId=AAA" in " ".join(objs[0].skipped_directives)
+    assert "ModelNodePath" in objs[0].properties
+
+
+def test_non_pin_customproperties_also_recorded() -> None:
+    """`CustomProperties Foo (...)` 같은 변종도 raw 보존."""
+    src = (
+        'Begin Object Class=X Name="N"\n'
+        '   CustomProperties Foo (Something=1)\n'
+        '   ModelNodePath="N"\n'
+        'End Object\n'
+    )
+    objs = parse_objects(src)
+    assert any("CustomProperties Foo" in d for d in objs[0].skipped_directives)
+    assert objs[0].properties.get("ModelNodePath") is not None
+
+
 @pytest.mark.skipif(
     not Path("Orion_WorkStation_Rig_Analysis/simple_face_CtrlRig.T3D").exists(),
     reason="repro file 미존재 환경 — smoke test skip",
