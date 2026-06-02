@@ -131,6 +131,7 @@ class NodeItem(QGraphicsRectItem):
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
 
+        self._chevron: "QGraphicsSimpleTextItem | None" = None
         _state = self._function_entry_state()
         if _state in ("subgraph", "funcref"):
             chev = QGraphicsSimpleTextItem("▶", self)
@@ -139,6 +140,7 @@ class NodeItem(QGraphicsRectItem):
             else:
                 chev.setBrush(QBrush(QColor("#FFC107")))
             chev.setPos(self._node_width - 16, 5)
+            self._chevron = chev
             self.setCursor(Qt.PointingHandCursor)
             tooltip = (self._profile.tooltip_when_no_subgraph
                        if _state == "funcref" and self._profile.tooltip_when_no_subgraph
@@ -146,6 +148,8 @@ class NodeItem(QGraphicsRectItem):
             self.setToolTip(tooltip)
 
         # F16: 변수 노드 헤더 우측에 'var' 배지
+        self._badge_bg: "QGraphicsRectItem | None" = None
+        self._badge_text: "QGraphicsSimpleTextItem | None" = None
         if self._profile.show_var_badge:
             var_color = QColor("#9966FF")
             if pin_colors is not None:
@@ -159,6 +163,8 @@ class NodeItem(QGraphicsRectItem):
             badge_text = QGraphicsSimpleTextItem("var", self)
             badge_text.setBrush(QBrush(QColor(255, 255, 255)))
             badge_text.setPos(badge_x + 5, badge_y + 1)
+            self._badge_bg = badge_bg
+            self._badge_text = badge_text
 
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
@@ -282,6 +288,7 @@ class NodeItem(QGraphicsRectItem):
 
 
     def _install_rows(self, rows: "list[PinRow]") -> None:
+        assert not self._row_children, "_install_rows called on dirty state — call _clear_rows() first"
         for i, row in enumerate(rows):
             cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
             self._rows[row.path] = cy
@@ -367,6 +374,7 @@ class NodeItem(QGraphicsRectItem):
                 sc.removeItem(child)
         self._row_children.clear()
         self._rows.clear()
+        self._row_paths.clear()
         self._arrow_zones.clear()
 
     def set_expanded_paths(self, expanded: frozenset[str]) -> None:
@@ -385,6 +393,14 @@ class NodeItem(QGraphicsRectItem):
             height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         self.prepareGeometryChange()
         self.setRect(QRectF(0, 0, self._node_width, height))
+        if self._chevron is not None:
+            self._chevron.setPos(self._node_width - 16, 5)
+        if self._badge_bg is not None:
+            badge_w, badge_h = 24.0, 14.0
+            badge_x = self._node_width - badge_w - 6
+            badge_y = (HEADER_HEIGHT - badge_h) / 2
+            self._badge_bg.setRect(QRectF(badge_x, badge_y, badge_w, badge_h))
+            self._badge_text.setPos(badge_x + 5, badge_y + 1)
         self._clear_rows()
         self._row_paths = [r.path for r in rows]
         self._install_rows(rows)

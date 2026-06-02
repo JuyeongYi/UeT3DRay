@@ -61,3 +61,20 @@ def test_update_node_expansion_unknown_name_noop(qtbot) -> None:
     scene = GraphScene()
     scene.populate(g)
     scene.update_node_expansion("Unknown", frozenset())   # 폭발 없이 noop
+
+
+def test_row_children_not_growing_on_repeated_toggle(qtbot) -> None:
+    """expand → collapse → expand 반복 후 _row_children 수가 고정."""
+    sub = Pin(name="X", cpp_type="float", direction="Input")
+    parent = Pin(name="Pos", cpp_type="FVector", direction="Input",
+                 subpins=[sub])
+    n = Node(name="N", cls="X", pins=[parent])
+    g = GraphModel(nodes=[n])
+    scene = GraphScene()
+    scene.populate(g)
+    item = scene._nodes["N"]
+    scene.update_node_expansion("N", frozenset({"N.Pos"}))
+    count_after_first = len(item._row_children)
+    scene.update_node_expansion("N", frozenset())           # 접기
+    scene.update_node_expansion("N", frozenset({"N.Pos"}))  # 다시 펼치기
+    assert len(item._row_children) == count_after_first
