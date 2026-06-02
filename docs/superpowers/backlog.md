@@ -369,6 +369,14 @@ batch ⑮ UX 확장 6 슬라이스 (가운데 클릭 패닝 + 미니맵 진입 +
 | **u8-B1** | `node.kind != "sequence"` if 분기를 NodeStyleProfile.hide_pin_labels로 데이터화 — batch ⑭ k1 시스템 일관 활용. **TOML 한 줄로 Branch/Switch 등 라벨 숨김 노드 추가 가능**. |
 | u8-B2 | `_classify_kind`의 property-extension block 룩업 — `_ext_props(obj)` 헬퍼로 추출. |
 
+### improver batch ⑮ u9 리뷰 findings (2026-06-02, master d6fc196) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **u9-A1** | 그래프 미로딩 상태에서 inline toolbar 액션 disable 부재 — silent no-op으로 사용자 인지 X. `action.setEnabled(self.graph is not None)` 한 줄. |
+| u9-B1 | 메뉴와 inline toolbar에 동일 QAction 두 번 인스턴스화(자동 정렬·위상 정렬) — `self._actions["auto_arrange"]` 등 액션 레지스트리. |
+| FEAT-56 (u9-C1) | inline toolbar 우클릭 컨텍스트 메뉴 — 항목별 표시 토글, QSettings 영속화. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
