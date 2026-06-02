@@ -99,7 +99,10 @@ class NodeItem(QGraphicsRectItem):
                                 connected_only=connected_only,
                                 expanded=expanded_paths)
         self._node_width = self._compute_width(node, rows)
-        height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
+        if self._profile.layout_hint == "passthrough":
+            height = HEADER_HEIGHT + ROW_HEIGHT
+        else:
+            height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
         super().__init__(QRectF(0, 0, self._node_width, height))
         self.node = node
         self._bus: _NodeItemBus = _NodeItemBus()
@@ -158,7 +161,13 @@ class NodeItem(QGraphicsRectItem):
             is_hidden = direction == "hidden"
             is_io = direction == "io"
             is_output = direction == "output"
-            is_input_side = not is_output and not is_io
+            _hint = self._profile.layout_hint
+            if _hint == "outputs_only":
+                is_input_side = False
+            elif _hint == "inputs_only":
+                is_input_side = True
+            else:
+                is_input_side = not is_output and not is_io
             label_color = QColor(150, 150, 150) if is_hidden else QColor(210, 210, 210)
             dot_r = 6.0 if row.pin.is_execution else PIN_RADIUS
             if row.has_dot and not is_hidden:
@@ -177,7 +186,11 @@ class NodeItem(QGraphicsRectItem):
                         dot.setBrush(QBrush(QColor(200, 200, 120)))
                         dot.setPen(QPen(Qt.NoPen))
                     return dot
-                if is_output:
+                if _hint == "outputs_only":
+                    _make_dot(self._node_width)
+                elif _hint == "inputs_only":
+                    _make_dot(0.0)
+                elif is_output:
                     _make_dot(self._node_width)
                 elif is_io:
                     _make_dot(0.0)
