@@ -91,3 +91,24 @@ def test_badge_reposition_guards_both_refs(qtbot) -> None:
     assert item._badge_bg is None
     assert item._badge_text is None
     item.set_expanded_paths(frozenset())   # noop이지만 reposition 분기 실행
+
+
+def test_add_row_item_rejects_foreign_parent(qtbot) -> None:
+    """parentItem이 self 아닌 graphics item을 _add_row_item에 넘기면 assert."""
+    from PySide6.QtWidgets import QGraphicsEllipseItem
+    import pytest
+    n = Node(name="N", cls="X", pins=[Pin(name="P", cpp_type="float", direction="Input")])
+    item = NodeItem(n)
+    rogue = QGraphicsEllipseItem(0, 0, 4, 4)   # parent=None
+    with pytest.raises(AssertionError):
+        item._add_row_item(rogue)
+
+
+def test_add_row_item_accepts_self_parent(qtbot) -> None:
+    """parentItem이 self면 통과."""
+    from PySide6.QtWidgets import QGraphicsEllipseItem
+    n = Node(name="N", cls="X", pins=[Pin(name="P", cpp_type="float", direction="Input")])
+    item = NodeItem(n)
+    legit = QGraphicsEllipseItem(0, 0, 4, 4, item)   # parent=item
+    item._add_row_item(legit)
+    assert legit in item._row_children

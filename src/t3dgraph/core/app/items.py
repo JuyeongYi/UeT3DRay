@@ -321,7 +321,11 @@ class NodeItem(QGraphicsRectItem):
 
 
     def _add_row_item(self, gitem: "QGraphicsItem") -> None:
-        """행 전용 그래픽 아이템 등록. _clear_rows의 청소 대상."""
+        """행 전용 그래픽 아이템 등록. _clear_rows의 청소 대상.
+
+        Precondition: `gitem.parentItem() is self` (행 아이템은 NodeItem의 자식).
+        """
+        assert gitem.parentItem() is self, "row item must be child of NodeItem"
         self._row_children.append(gitem)
 
     def _install_rows(self, rows: "list[PinRow]") -> None:
