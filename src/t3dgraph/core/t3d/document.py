@@ -30,8 +30,34 @@ def _merge_sibling_list(dst: list[T3DObject], src: list[T3DObject]) -> None:
                 by_name[o.name] = o
 
 
+def _dedupe_within(objects: list[T3DObject]) -> list[T3DObject]:
+    """단일 sibling list 안에서 같은 name 항목 머지.
+
+    선언(`Begin Object Class=... Name="X"`) + 정의(`Begin Object Name="X"`)가
+    같은 부모의 children에 연속 또는 비연속으로 나타나면 하나로 합친다.
+    """
+    result: list[T3DObject] = []
+    by_name: dict[str, T3DObject] = {}
+    for o in objects:
+        if o.name and o.name in by_name:
+            _merge_into(by_name[o.name], o)
+        else:
+            result.append(o)
+            if o.name:
+                by_name[o.name] = o
+    return result
+
+
+def _recursive_dedupe(objects: list[T3DObject]) -> list[T3DObject]:
+    """전 트리 깊이에서 sibling 중복 머지."""
+    deduped = _dedupe_within(objects)
+    for obj in deduped:
+        obj.children = _recursive_dedupe(obj.children)
+    return deduped
+
+
 def parse_document(src: str) -> T3DDocument:
     raw = parse_objects(src)
     merged: list[T3DObject] = []
     _merge_sibling_list(merged, raw)
-    return T3DDocument(objects=merged)
+    return T3DDocument(objects=_recursive_dedupe(merged))
