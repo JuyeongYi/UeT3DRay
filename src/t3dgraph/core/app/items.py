@@ -139,9 +139,11 @@ class NodeItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.ItemIsMovable, True)              # F18
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
 
+        self._header_children: list = []
         title = QGraphicsSimpleTextItem(node.display_name or node.name or "?", self)
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
+        self._header_children.append(title)
 
         self._chevron: "QGraphicsSimpleTextItem | None" = None
         _state = self._function_entry_state()
@@ -153,6 +155,7 @@ class NodeItem(QGraphicsRectItem):
                 chev.setBrush(QBrush(QColor("#FFC107")))
             chev.setPos(self._node_width - 16, 5)
             self._chevron = chev
+            self._header_children.append(chev)
             self.setCursor(Qt.PointingHandCursor)
             tooltip = (self._profile.tooltip_when_no_subgraph
                        if _state == "funcref" and self._profile.tooltip_when_no_subgraph
@@ -177,6 +180,8 @@ class NodeItem(QGraphicsRectItem):
             badge_text.setPos(badge_x + 5, badge_y + 1)
             self._badge_bg = badge_bg
             self._badge_text = badge_text
+            self._header_children.append(badge_bg)
+            self._header_children.append(badge_text)
 
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
@@ -299,6 +304,10 @@ class NodeItem(QGraphicsRectItem):
         return self.mapToScene(QPointF(lx, cy))
 
 
+    def _add_row_item(self, gitem: "QGraphicsItem") -> None:
+        """행 전용 그래픽 아이템 등록. _clear_rows의 청소 대상."""
+        self._row_children.append(gitem)
+
     def _install_rows(self, rows: "list[PinRow]") -> None:
         assert not self._row_children, "_install_rows called on dirty state — call _clear_rows() first"
         for i, row in enumerate(rows):
@@ -330,7 +339,7 @@ class NodeItem(QGraphicsRectItem):
                     else:
                         dot.setBrush(QBrush(QColor(200, 200, 120)))
                         dot.setPen(QPen(Qt.NoPen))
-                    self._row_children.append(dot)
+                    self._add_row_item(dot)
                     return dot
                 if _hint == "outputs_only":
                     _make_dot(self._node_width)
@@ -348,7 +357,7 @@ class NodeItem(QGraphicsRectItem):
             if row.has_children:
                 arrow_char = "▼" if row.path in self._expanded_paths else "▶"
                 arrow = QGraphicsSimpleTextItem(arrow_char, self)
-                self._row_children.append(arrow)
+                self._add_row_item(arrow)
                 arrow.setBrush(QBrush(QColor(210, 210, 210)))
                 arrow_w = arrow.boundingRect().width()
                 if is_input_side:
@@ -365,7 +374,7 @@ class NodeItem(QGraphicsRectItem):
                 if row.pin.variable_source:
                     label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
                 label = QGraphicsSimpleTextItem(label_text, self)
-                self._row_children.append(label)
+                self._add_row_item(label)
                 label.setBrush(QBrush(label_color))
                 is_modified = (row.path in self._connected_paths) or (row.path in self._changed_paths)
                 if row.pin.is_execution or is_modified:
@@ -423,7 +432,8 @@ class NodeItem(QGraphicsRectItem):
                      connected_only: "bool | None" = None,
                      pin_colors: "PinColorTable | None" = None) -> None:
         """캐시된 렌더 상태 setter. 호출자는 이후 set_expanded_paths()로
-        rebuild를 명시적으로 트리거해야 한다 (이 setter는 install 안 함)."""
+        rebuild를 명시적으로 트리거해야 한다 (이 setter는 install 안 함).
+        각 kwarg의 None은 '변경 없음' 의미 — 해당 필드를 None으로 지우는 게 아님."""
         if connected_paths is not None:
             self._connected_paths = connected_paths
         if changed_paths is not None:

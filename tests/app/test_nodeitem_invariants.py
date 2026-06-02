@@ -1,4 +1,4 @@
-"""v2-A1 — NodeItem cached state setter."""
+"""v2-A1/B1 — NodeItem cached state setter + header/row children separation."""
 from t3dgraph.core.base.graph_model import Node, Pin
 from t3dgraph.core.app.items import NodeItem
 
@@ -37,3 +37,35 @@ def test_update_state_no_op_when_unchanged(qtbot) -> None:
                       changed_paths=frozenset(),
                       pin_colors=None)
     assert len(item.childItems()) == cnt_before
+
+
+def test_header_children_not_cleared_on_rebuild(qtbot) -> None:
+    """헤더 영역(title·chevron·badge)은 set_expanded_paths로 사라지지 않는다."""
+    from PySide6.QtWidgets import QGraphicsSimpleTextItem
+    sub = Pin(name="X", cpp_type="float", direction="Input")
+    parent = Pin(name="Pos", cpp_type="FVector", direction="Input",
+                 subpins=[sub])
+    n = Node(name="N", cls="X.RigVMCollapseNode",
+             pins=[parent], subgraph="dummy")
+    item = NodeItem(n)
+    headers_before = list(item._header_children)
+    item.set_expanded_paths(frozenset({"N.Pos"}))
+    headers_after = list(item._header_children)
+    assert headers_before == headers_after
+    for h in headers_after:
+        if isinstance(h, QGraphicsSimpleTextItem):
+            _ = h.text()
+
+
+def test_row_children_replaced_on_rebuild(qtbot) -> None:
+    """행 자식만 _clear_rows로 제거 + 새 _install_rows."""
+    sub = Pin(name="X", cpp_type="float", direction="Input")
+    parent = Pin(name="Pos", cpp_type="FVector", direction="Input",
+                 subpins=[sub])
+    n = Node(name="N", cls="X", pins=[parent])
+    item = NodeItem(n)
+    rows_before = list(item._row_children)
+    item.set_expanded_paths(frozenset({"N.Pos"}))
+    rows_after = list(item._row_children)
+    assert not any(r in rows_before for r in rows_after)
+    assert len(rows_after) > len(rows_before)
