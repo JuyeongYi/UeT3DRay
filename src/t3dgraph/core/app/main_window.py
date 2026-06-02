@@ -496,7 +496,11 @@ class MainWindow(QMainWindow):
         self._apply_persistent_state(path)
 
     def _on_scene_selection(self) -> None:
-        selected = [item for item in self.scene._nodes.values() if item.isSelected()]
+        try:
+            selected = [item for item in self.scene._nodes.values()
+                        if item.isSelected()]
+        except RuntimeError:
+            return
         if len(selected) > 1:
             self.current_view_state().select(None)
             self.inspector.show_multi_selection(len(selected))

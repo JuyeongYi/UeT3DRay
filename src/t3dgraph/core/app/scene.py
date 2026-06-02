@@ -40,9 +40,14 @@ class GraphScene(QGraphicsScene):
                  node_profiles: "NodeProfileTable | None" = None) -> None:
         vs = view_state or ViewState()
         keep_selected = self.selected_node_name()
-        self.clear()
+        # w1-A: 옛 dict 참조 먼저 끊기 — clear 도중 selectionChanged 발화해도 빈 dict 노출
         self._nodes = {}
         self._links = []
+        self.blockSignals(True)
+        try:
+            self.clear()
+        finally:
+            self.blockSignals(False)
         self._graph = graph
         self._pin_colors = pin_colors
 
