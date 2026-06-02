@@ -336,6 +336,21 @@ batch ⑫ c2~c4 (persistent state + values structs + misc 정리).
 
 **메모:** **⑫c2-A2**가 사용자 데이터 손실 시나리오 — 다음 사이클 첫 발주 권장. 나머지는 점진. **자율 루프 cleanup 단계 마감** — improver도 동의.
 
+### improver batch ⑮ u1~u6 리뷰 findings (2026-06-02, master 2b53bed) — 미처리
+
+batch ⑮ UX 확장 6 슬라이스 (가운데 클릭 패닝 + 미니맵 진입 + 색 범례 + 프로필 참조 + 수정 핀 토글 + bold 라벨).
+
+| ID | 내용 |
+| --- | --- |
+| **⑮-A1** | 라벨 "수정된 핀만" vs 내부 키 `connected_only`/`connected_pins_only` 불일치 — 영속 JSON 의미 표류. 사용자가 JSON에서 `connected_pins_only=true` 봐도 의미 불명. `modified_only`로 v3 schema 마이그레이션 또는 `set_pin_filter(mode: Literal['all','modified','exec'])` enum 도입. |
+| **⑮-A2** | PinColorTable.\_palette·NodeProfileTable.\_by\_suffix private 직접 접근 재발 — u3/u4 다이얼로그. `.palette_items()`/`.bucket_items()`/`.suffix_items()` public 이터레이터 한 줄. batch ⑫ 정리 직후 재발이라 정리 정기 운영 필요 신호. |
+| ⑮-A4 | `MinimapPanel.location_clicked` `Signal(int, object)` type erasure — `Signal(int, GraphModel)`로 명시. Qt 메타시스템·디버거 추적 가능. |
+| ⑮-B1 | `_changed_paths_by_node`·`_connected_paths_by_node` walk 중복 — `graph.iter_pin_paths()`+`graph.find_pin()` 헬퍼로 한 줄 단축 가능. |
+| **⑮-B2** | `minimap_panel`이 `stack._cur_root`·`stack._paths` private 접근 — η-B3 잔존. `GraphStack.current_root_index()`/`current_path()` 게터 추가 정리 슬라이스 1순위. |
+| FEAT-54 (⑮-C1) | u3 핀 색 범례·u4 노드 프로필 참조 다이얼로그를 도크 토글 — IDE 표준 UX. `QDockWidget` 베이스 살짝 리팩터. |
+
+**메모:** **⑮-A1**(라벨/키 불일치) 빠른 1순위 핫픽스 후보. **⑮-A2**·**⑮-B2** 다음 정리 슬라이스 묶음.
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
