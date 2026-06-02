@@ -96,14 +96,12 @@ class InspectorPanel(NavigablePanel):
                  changed_paths: set[str], connected_paths: set[str],
                  graph: GraphModel, parent: QTreeWidgetItem) -> None:
         full = f"{node_name}.{path}"
-        # connected_paths/changed_paths는 부모 prefix 자동 포함 — full만 체크
-        is_in_conn = full in connected_paths
-        is_in_chg = full in changed_paths
         # is_in_conn is True for ancestor prefixes too — _is_self_target disambiguates direct endpoint vs descendant
-        is_self_conn = is_in_conn and self._is_self_target(full, graph)
-        is_self_chg = is_in_chg and is_changed_from_default(pin)
-        has_desc_conn = is_in_conn and not is_self_conn
-        has_desc_chg = is_in_chg and not is_self_chg
+        is_self_conn = self._is_self_target(full, graph)
+        is_self_chg = (full in changed_paths) and is_changed_from_default(pin)
+        # descendant check: any direct child path present in set (sets include prefix closure)
+        has_desc_conn = any(f"{full}.{sp.name}" in connected_paths for sp in pin.subpins)
+        has_desc_chg = any(f"{full}.{sp.name}" in changed_paths for sp in pin.subpins)
         status_parts = []
         if is_self_conn and has_desc_conn:
             status_parts.append("연결됨 (원소 포함)")

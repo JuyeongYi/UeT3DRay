@@ -107,3 +107,46 @@ def test_inspector_array_self_connected_shows_connected(qtbot) -> None:
     parent_item = panel._items["T.Items"]
     assert "연결됨" in parent_item.text(4)
     assert "원소" not in parent_item.text(4)
+
+
+def test_inspector_self_and_descendant_connected_combined(qtbot) -> None:
+    """배열 자체 연결 + 자식 핀도 따로 연결 → '연결됨 (원소 포함)'."""
+    from t3dgraph.core.app.inspector_panel import InspectorPanel
+    sub_0 = Pin(name="0", cpp_type="float", direction="Input")
+    array_pin = Pin(name="Items", cpp_type="TArray<float>",
+                    direction="Input", subpins=[sub_0])
+    target = Node(name="T", cls="X", pins=[array_pin])
+    src1 = Node(name="S1", cls="X",
+                pins=[Pin(name="Out", cpp_type="TArray<float>",
+                          direction="Output")])
+    src2 = Node(name="S2", cls="X",
+                pins=[Pin(name="Out", cpp_type="float",
+                          direction="Output")])
+    g = GraphModel(
+        nodes=[src1, src2, target],
+        links=[
+            Link(source_path="S1.Out", target_path="T.Items"),    # self
+            Link(source_path="S2.Out", target_path="T.Items.0"),  # desc
+        ],
+    )
+    panel = InspectorPanel()
+    qtbot.addWidget(panel)
+    panel.show_node(target, g)
+    parent_item = panel._items["T.Items"]
+    assert "연결됨 (원소 포함)" in parent_item.text(4)
+
+
+def test_inspector_self_and_descendant_changed_combined(qtbot) -> None:
+    """struct 자체 default + 자식도 default → '변경됨(추정) (원소 포함)'."""
+    from t3dgraph.core.app.inspector_panel import InspectorPanel
+    sub = Pin(name="X", cpp_type="float", direction="Input",
+              default_value="42.0")
+    parent = Pin(name="Pos", cpp_type="FVector", direction="Input",
+                 default_value="(X=1,Y=2,Z=3)", subpins=[sub])
+    n = Node(name="N", cls="X", pins=[parent])
+    g = GraphModel(nodes=[n])
+    panel = InspectorPanel()
+    qtbot.addWidget(panel)
+    panel.show_node(n, g)
+    parent_item = panel._items["N.Pos"]
+    assert "변경됨(추정) (원소 포함)" in parent_item.text(4)
