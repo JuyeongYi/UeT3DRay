@@ -215,21 +215,23 @@ class NodeItem(QGraphicsRectItem):
                     zone = (self._node_width - indent + 2, self._node_width - PIN_RADIUS - 2)
                 arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
                 self._arrow_zones[row.path] = (zone[0], zone[1], cy)
-            label_text = row.pin.name
-            if row.pin.variable_source:
-                label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
-            label = QGraphicsSimpleTextItem(label_text, self)
-            label.setBrush(QBrush(label_color))
-            is_modified = (row.path in connected_paths) or (row.path in changed_paths)
-            if row.pin.is_execution or is_modified:
-                f = label.font()
-                f.setBold(True)
-                label.setFont(f)
-            if is_input_side:
-                lx = indent
-            else:
-                lx = self._node_width - 8 - label.boundingRect().width() - arrow_w
-            label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+            # sequence 노드는 핀 라벨 숨김 (dot만 표시 — 그래프 흐름으로 평가)
+            if node.kind != "sequence":
+                label_text = row.pin.name
+                if row.pin.variable_source:
+                    label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
+                label = QGraphicsSimpleTextItem(label_text, self)
+                label.setBrush(QBrush(label_color))
+                is_modified = (row.path in connected_paths) or (row.path in changed_paths)
+                if row.pin.is_execution or is_modified:
+                    f = label.font()
+                    f.setBold(True)
+                    label.setFont(f)
+                if is_input_side:
+                    lx = indent
+                else:
+                    lx = self._node_width - 8 - label.boundingRect().width() - arrow_w
+                label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
 
     @staticmethod
     def _compute_width(node: "Node", rows: "list[PinRow]") -> float:
