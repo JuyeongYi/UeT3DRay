@@ -27,6 +27,8 @@ NODE_WIDTH = MIN_NODE_WIDTH   # legacy alias
 ROW_HEIGHT = 20.0
 HEADER_HEIGHT = 26.0
 PIN_RADIUS = 4.0
+_BADGE_WIDTH = 24.0
+_BADGE_HEIGHT = 14.0
 
 
 @dataclass(frozen=True)
@@ -169,15 +171,13 @@ class NodeItem(QGraphicsRectItem):
             var_color = QColor("#9966FF")
             if pin_colors is not None:
                 var_color = pin_colors._palette.get("variable", var_color)
-            badge_w, badge_h = 24.0, 14.0
-            badge_x = self._node_width - badge_w - 6
-            badge_y = (HEADER_HEIGHT - badge_h) / 2
-            badge_bg = QGraphicsRectItem(badge_x, badge_y, badge_w, badge_h, self)
+            geom = self._badge_geometry(self._node_width)
+            badge_bg = QGraphicsRectItem(geom, self)
             badge_bg.setBrush(QBrush(var_color))
             badge_bg.setPen(QPen(Qt.NoPen))
             badge_text = QGraphicsSimpleTextItem("var", self)
             badge_text.setBrush(QBrush(QColor(255, 255, 255)))
-            badge_text.setPos(badge_x + 5, badge_y + 1)
+            badge_text.setPos(geom.x() + 5, geom.y() + 1)
             self._badge_bg = badge_bg
             self._badge_text = badge_text
             self._header_children.append(badge_bg)
@@ -188,6 +188,13 @@ class NodeItem(QGraphicsRectItem):
         self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
         self._row_children: list = []
         self._install_rows(rows)
+
+    @staticmethod
+    def _badge_geometry(node_width: float) -> "QRectF":
+        """var badge 사각형 — node_width 기준 우측 정렬."""
+        badge_x = node_width - _BADGE_WIDTH - 6
+        badge_y = (HEADER_HEIGHT - _BADGE_HEIGHT) / 2
+        return QRectF(badge_x, badge_y, _BADGE_WIDTH, _BADGE_HEIGHT)
 
     @staticmethod
     def _compute_width(node: "Node", rows: "list[PinRow]") -> float:
@@ -417,11 +424,9 @@ class NodeItem(QGraphicsRectItem):
         if self._chevron is not None:
             self._chevron.setPos(self._node_width - 16, 5)
         if self._badge_bg is not None and self._badge_text is not None:
-            badge_w, badge_h = 24.0, 14.0
-            badge_x = self._node_width - badge_w - 6
-            badge_y = (HEADER_HEIGHT - badge_h) / 2
-            self._badge_bg.setRect(QRectF(badge_x, badge_y, badge_w, badge_h))
-            self._badge_text.setPos(badge_x + 5, badge_y + 1)
+            geom = self._badge_geometry(self._node_width)
+            self._badge_bg.setRect(geom)
+            self._badge_text.setPos(geom.x() + 5, geom.y() + 1)
         self._clear_rows()
         self._row_paths = [r.path for r in rows]
         self._install_rows(rows)

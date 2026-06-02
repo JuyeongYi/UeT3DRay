@@ -65,7 +65,29 @@ def test_row_children_replaced_on_rebuild(qtbot) -> None:
     n = Node(name="N", cls="X", pins=[parent])
     item = NodeItem(n)
     rows_before = list(item._row_children)
+    assert rows_before, "초기 row_children이 비어있음 — 테스트 전제 위반"
     item.set_expanded_paths(frozenset({"N.Pos"}))
     rows_after = list(item._row_children)
     assert not any(r in rows_before for r in rows_after)
     assert len(rows_after) > len(rows_before)
+
+
+def test_badge_geometry_helper_returns_consistent_rect(qtbot) -> None:
+    """_badge_geometry는 init과 reposition에서 동일 좌표 산출."""
+    from PySide6.QtCore import QRectF
+    from t3dgraph.core.app.items import NodeItem, _BADGE_WIDTH, _BADGE_HEIGHT
+    rect = NodeItem._badge_geometry(node_width=300.0)
+    assert isinstance(rect, QRectF)
+    assert rect.width() == _BADGE_WIDTH
+    assert rect.height() == _BADGE_HEIGHT
+    rect2 = NodeItem._badge_geometry(node_width=400.0)
+    assert rect2.x() == rect.x() + 100.0
+
+
+def test_badge_reposition_guards_both_refs(qtbot) -> None:
+    """badge null 가드 — badge 없는 노드에서 set_expanded_paths가 NPE 안 던짐."""
+    n = Node(name="N", cls="X", pins=[Pin(name="P", cpp_type="float", direction="Input")])
+    item = NodeItem(n)
+    assert item._badge_bg is None
+    assert item._badge_text is None
+    item.set_expanded_paths(frozenset())   # noop이지만 reposition 분기 실행
