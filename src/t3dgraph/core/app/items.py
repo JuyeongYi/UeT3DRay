@@ -32,6 +32,11 @@ class PinRow:
     depth: int
     has_dot: bool
     has_children: bool = False   # subpins가 비어있지 않으면 True (F12 disclosure 표시)
+    effective_direction: str = ""   # 정규화된 방향 ("input"/"output"/"io"/"hidden"/"")
+
+
+def _normalize_direction(raw: str | None) -> str:
+    return (raw or "").strip().lower()
 
 
 def collect_pin_rows(
@@ -43,28 +48,33 @@ def collect_pin_rows(
 ) -> list[PinRow]:
     rows: list[PinRow] = []
 
-    def walk(pin: Pin, path: str, depth: int) -> bool:
+    def walk(pin: Pin, path: str, depth: int, parent_dir: str) -> bool:
+        my_dir = _normalize_direction(pin.direction)
+        if not my_dir:
+            my_dir = parent_dir
         include_self = (not connected_only) or (path in connected_subtree)
         my_idx: int | None = None
         if include_self:
             my_idx = len(rows)
             rows.append(PinRow(pin=pin, path=path, depth=depth, has_dot=True,
-                               has_children=bool(pin.subpins)))
+                               has_children=bool(pin.subpins),
+                               effective_direction=my_dir))
         children_added = False
         if path in expanded:
             for sp in pin.subpins:
                 child_path = f"{path}.{sp.name}"
-                if walk(sp, child_path, depth + 1):
+                if walk(sp, child_path, depth + 1, my_dir):
                     children_added = True
         if my_idx is not None and children_added:
             cur = rows[my_idx]
             rows[my_idx] = PinRow(pin=cur.pin, path=cur.path,
                                   depth=cur.depth, has_dot=False,
-                                  has_children=cur.has_children)
+                                  has_children=cur.has_children,
+                                  effective_direction=cur.effective_direction)
         return include_self or children_added
 
     for pin in node.pins:
-        walk(pin, f"{node.name}.{pin.name}", 0)
+        walk(pin, f"{node.name}.{pin.name}", 0, "")
     return rows
 
 
@@ -130,21 +140,35 @@ class NodeItem(QGraphicsRectItem):
         for i, row in enumerate(rows):
             cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
             self._rows[row.path] = cy
-            is_input = (row.pin.direction or "").lower() != "output"
-            mx = 0.0 if is_input else NODE_WIDTH
-            if row.has_dot:
-                dot = QGraphicsEllipseItem(
-                    mx - PIN_RADIUS, cy - PIN_RADIUS, 2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
-                if pin_colors is not None:
-                    resolved = pin_colors.resolve(row.pin.cpp_type)
-                    dot.setBrush(QBrush(resolved.color))
-                    if resolved.is_array:
-                        dot.setPen(QPen(QColor(40, 40, 40), 1.5))
+            direction = row.effective_direction
+            is_hidden = direction == "hidden"
+            is_io = direction == "io"
+            is_output = direction == "output"
+            is_input_side = not is_output and not is_io
+            label_color = QColor(150, 150, 150) if is_hidden else QColor(210, 210, 210)
+            if row.has_dot and not is_hidden:
+                def _make_dot(mx: float, _row=row) -> QGraphicsEllipseItem:
+                    dot = QGraphicsEllipseItem(
+                        mx - PIN_RADIUS, cy - PIN_RADIUS,
+                        2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
+                    if pin_colors is not None:
+                        resolved = pin_colors.resolve(_row.pin.cpp_type)
+                        dot.setBrush(QBrush(resolved.color))
+                        if resolved.is_array:
+                            dot.setPen(QPen(QColor(40, 40, 40), 1.5))
+                        else:
+                            dot.setPen(QPen(Qt.NoPen))
                     else:
+                        dot.setBrush(QBrush(QColor(200, 200, 120)))
                         dot.setPen(QPen(Qt.NoPen))
+                    return dot
+                if is_output:
+                    _make_dot(NODE_WIDTH)
+                elif is_io:
+                    _make_dot(0.0)
+                    _make_dot(NODE_WIDTH)
                 else:
-                    dot.setBrush(QBrush(QColor(200, 200, 120)))
-                    dot.setPen(QPen(Qt.NoPen))
+                    _make_dot(0.0)
             indent = 18 + row.depth * 12
             arrow_w = 0.0
             if row.has_children:
@@ -152,9 +176,8 @@ class NodeItem(QGraphicsRectItem):
                 arrow = QGraphicsSimpleTextItem(arrow_char, self)
                 arrow.setBrush(QBrush(QColor(210, 210, 210)))
                 arrow_w = arrow.boundingRect().width()
-                if is_input:
+                if is_input_side:
                     ax = indent - 14
-                    # dot x∈[-PIN_RADIUS, PIN_RADIUS] → zone starts after dot
                     zone = (PIN_RADIUS + 2, indent - 2)
                 else:
                     ax = NODE_WIDTH - indent + 2
@@ -165,8 +188,8 @@ class NodeItem(QGraphicsRectItem):
             if row.pin.variable_source:
                 label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
             label = QGraphicsSimpleTextItem(label_text, self)
-            label.setBrush(QBrush(QColor(210, 210, 210)))
-            if is_input:
+            label.setBrush(QBrush(label_color))
+            if is_input_side:
                 lx = indent
             else:
                 lx = NODE_WIDTH - 8 - label.boundingRect().width() - arrow_w
