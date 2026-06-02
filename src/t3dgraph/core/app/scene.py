@@ -7,6 +7,7 @@ from ..analysis.flow import FlowResult
 from ..base.paths import type_suffix, node_of
 from .items import NodeItem, LinkItem
 from .layout_overrides import LayoutOverrides
+from .node_profiles import NodeProfileTable
 from .pin_colors import PinColorTable
 from .view_state import ViewState
 
@@ -34,7 +35,8 @@ class GraphScene(QGraphicsScene):
                  flow: FlowResult | None = None,
                  pin_colors: "PinColorTable | None" = None,
                  layout_overrides: LayoutOverrides | None = None,
-                 graph_key: str = "") -> None:
+                 graph_key: str = "",
+                 node_profiles: "NodeProfileTable | None" = None) -> None:
         vs = view_state or ViewState()
         keep_selected = self.selected_node_name()
         self.clear()
@@ -50,6 +52,10 @@ class GraphScene(QGraphicsScene):
         self._populating = True
         try:
             for node in graph.nodes:
+                profile = None
+                if node_profiles is not None:
+                    suffix = (node.cls or "").rsplit(".", 1)[-1]
+                    profile = node_profiles.resolve(suffix)
                 item = NodeItem(
                     node,
                     connected_paths=frozenset(connected.get(node.name, set())),
@@ -59,6 +65,7 @@ class GraphScene(QGraphicsScene):
                     ),
                     highlighted=vs.fan_in_highlight and node.name in convergence,
                     pin_colors=pin_colors,
+                    profile=profile,
                 )
                 override = (layout_overrides.get(graph_key, node.name)
                             if layout_overrides is not None else None)

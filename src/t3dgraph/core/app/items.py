@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsPathItem, QGraphicsItem,
 )
 from ..base.graph_model import Node, Pin
+from .node_profiles import NodeStyleProfile
 from .pin_colors import PinColorTable
 
 
@@ -91,7 +92,9 @@ class NodeItem(QGraphicsRectItem):
         expanded_paths: frozenset[str] = frozenset(),
         highlighted: bool = False,
         pin_colors: "PinColorTable | None" = None,
+        profile: "NodeStyleProfile | None" = None,
     ):
+        self._profile: NodeStyleProfile = profile if profile is not None else NodeStyleProfile()
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 connected_only=connected_only,
                                 expanded=expanded_paths)
@@ -125,10 +128,13 @@ class NodeItem(QGraphicsRectItem):
                 chev.setBrush(QBrush(QColor("#FFC107")))
             chev.setPos(self._node_width - 16, 5)
             self.setCursor(Qt.PointingHandCursor)
-            self.setToolTip("더블클릭하여 서브그래프 진입")
+            tooltip = (self._profile.tooltip_when_no_subgraph
+                       if _state == "funcref" and self._profile.tooltip_when_no_subgraph
+                       else "더블클릭하여 서브그래프 진입")
+            self.setToolTip(tooltip)
 
         # F16: 변수 노드 헤더 우측에 'var' 배지
-        if (node.cls or "").rsplit(".", 1)[-1] == "RigVMVariableNode":
+        if self._profile.show_var_badge:
             var_color = QColor("#9966FF")
             if pin_colors is not None:
                 var_color = pin_colors._palette.get("variable", var_color)
@@ -231,14 +237,16 @@ class NodeItem(QGraphicsRectItem):
 
         Returns:
             "subgraph"  — subgraph 보유 (초록 chevron)
-            "funcref"   — funcref 클래스이지만 subgraph 없음 (노랑 chevron)
+            "funcref"   — chevron_state_aware이지만 subgraph 없음 (노랑 chevron)
             "none"      — 해당 없음 (chevron 표시 안 함)
         """
+        if not self._profile.always_show_chevron:
+            return "none"
         if self.node.subgraph is not None:
             return "subgraph"
-        if (self.node.cls or "").endswith(self._FUNCREF_CLS_SUFFIX):
+        if self._profile.chevron_state_aware:
             return "funcref"
-        return "none"
+        return "subgraph"  # always_show_chevron but not state_aware → 항상 초록
 
     @property
     def bus(self) -> _NodeItemBus:

@@ -25,6 +25,7 @@ from .execution_order_panel import ExecutionOrderPanel
 from .data_flow_panel import DataFlowPanel
 from .minimap_panel import MinimapPanel
 from .layout_overrides import LayoutOverrides
+from .node_profiles import NodeProfileTable
 from .pin_colors import PinColorTable
 from .persistent_state import PersistentState, GraphState, load_state, save_state
 
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
             self.pin_colors = PinColorTable.load()
         except (tomllib.TOMLDecodeError, ValueError, OSError) as exc:
             self._palette_load_exc = exc
+        self.node_profiles: NodeProfileTable = NodeProfileTable.load()
         self.layout_overrides = LayoutOverrides()
         self._save_state_timer = QTimer(self)
         self._save_state_timer.setSingleShot(True)
@@ -374,7 +376,8 @@ class MainWindow(QMainWindow):
             self.scene.populate(self.graph, view_state=self.current_view_state(),
                                 flow=self._flow, pin_colors=self.pin_colors,
                                 layout_overrides=self.layout_overrides,
-                                graph_key=self._current_graph_key())
+                                graph_key=self._current_graph_key(),
+                                node_profiles=self.node_profiles)
 
     def set_view_mode(self, mode_id: str, checked: bool) -> None:
         """안정 식별자로 뷰 모드 토글 — connected_only / fan_in_highlight."""
@@ -561,7 +564,8 @@ class MainWindow(QMainWindow):
         self.scene.populate(current, view_state=self.current_view_state(), flow=bundle.flow,
                             pin_colors=self.pin_colors,
                             layout_overrides=self.layout_overrides,
-                            graph_key=self._current_graph_key())
+                            graph_key=self._current_graph_key(),
+                            node_profiles=self.node_profiles)
         self.node_filter.set_graph(current)
         self.inspector.show_node(None, current)
         self.view.fit()
