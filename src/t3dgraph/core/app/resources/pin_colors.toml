@@ -3,7 +3,7 @@
 # "팔레트 리셋" 메뉴는 사용자 파일을 본 번들로 덮어쓴다.
 
 [palette]
-exec    = "#FFFFFF"
+exec    = "#FFB000"
 bool    = "#A02020"
 int     = "#1FBEB6"
 float   = "#7AC74F"

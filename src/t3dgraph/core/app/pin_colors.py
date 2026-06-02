@@ -55,6 +55,9 @@ class PinColorTable:
             array_marker=special.get("array_marker", "TArray<"),
         )
 
+    _LEGACY_EXEC_COLOR = "#FFFFFF"
+    _DEFAULT_EXEC_COLOR = "#FFB000"
+
     @classmethod
     def load(cls) -> "PinColorTable":
         user_file = cls._user_dir() / "pin_colors.toml"
@@ -66,7 +69,25 @@ class PinColorTable:
             user_file.write_bytes(bundle_bytes)
         with user_file.open("rb") as f:
             file_bytes = f.read()
+        text = file_bytes.decode("utf-8")
+        migrated = cls._migrate_legacy_exec(text)
+        if migrated != text:
+            user_file.write_text(migrated, encoding="utf-8")
+            file_bytes = migrated.encode("utf-8")
         return cls._from_toml_bytes(file_bytes)
+
+    @classmethod
+    def _migrate_legacy_exec(cls, text: str) -> str:
+        """exec = "#FFFFFF" (레거시 흰색) → "#FFB000" 자동 마이그레이션.
+
+        정규식 대신 정확한 문자열 치환 — 커스텀 색(#FFFFFF 이외) 은 건드리지 않는다.
+        """
+        import re
+        return re.sub(
+            r'(exec\s*=\s*"#)[Ff][Ff][Ff][Ff][Ff][Ff](")',
+            lambda m: m.group(1) + cls._DEFAULT_EXEC_COLOR[1:] + m.group(2),
+            text,
+        )
 
     @classmethod
     def reset_user_file(cls) -> Path:

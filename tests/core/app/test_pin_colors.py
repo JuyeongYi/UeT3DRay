@@ -33,7 +33,7 @@ def test_bucket_lookup_struct(bundled_table: PinColorTable) -> None:
 
 def test_special_exec_marker(bundled_table: PinColorTable) -> None:
     r = bundled_table.resolve("FRigVMExecuteContext")
-    assert r.color == QColor("#FFFFFF")
+    assert r.color == QColor("#FFB000")
 
 
 def test_special_array_inner_lookup(bundled_table: PinColorTable) -> None:
@@ -134,3 +134,30 @@ def test_load_uses_from_toml_bytes(tmp_path: Path, monkeypatch) -> None:
     via_bytes = PinColorTable._from_toml_bytes(bundle_bytes)
     assert via_load.resolve("bool").color == via_bytes.resolve("bool").color
     assert via_load.resolve(None).color == via_bytes.resolve(None).color
+
+
+def test_legacy_exec_white_migrated(tmp_path: Path, monkeypatch) -> None:
+    """사용자 파일에 exec = "#FFFFFF" (레거시)이 있으면 #FFB000으로 자동 변경."""
+    monkeypatch.setattr(PinColorTable, "_user_dir", classmethod(lambda cls: tmp_path))
+    user_file = tmp_path / "pin_colors.toml"
+    user_file.write_text(
+        '[palette]\nexec = "#FFFFFF"\ndefault = "#C8C878"\n', encoding="utf-8"
+    )
+    table = PinColorTable.load()
+    assert table.resolve("FRigVMExecuteContext").color == QColor("#FFB000")
+    # 파일도 갱신되어 있어야 한다
+    assert "#FFFFFF" not in user_file.read_text(encoding="utf-8")
+    assert "#FFB000" in user_file.read_text(encoding="utf-8")
+
+
+def test_custom_exec_color_preserved(tmp_path: Path, monkeypatch) -> None:
+    """사용자가 커스텀 exec 색을 지정하면 그대로 유지한다."""
+    monkeypatch.setattr(PinColorTable, "_user_dir", classmethod(lambda cls: tmp_path))
+    user_file = tmp_path / "pin_colors.toml"
+    user_file.write_text(
+        '[palette]\nexec = "#FF0000"\ndefault = "#C8C878"\n', encoding="utf-8"
+    )
+    table = PinColorTable.load()
+    assert table.resolve("FRigVMExecuteContext").color == QColor("#FF0000")
+    # 파일 변경 없음
+    assert "#FF0000" in user_file.read_text(encoding="utf-8")
