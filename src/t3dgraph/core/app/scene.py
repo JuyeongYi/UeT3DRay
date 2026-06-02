@@ -46,8 +46,8 @@ class GraphScene(QGraphicsScene):
         self._graph = graph
         self._pin_colors = pin_colors
 
-        connected = self._connected_paths_by_node(graph)
-        changed = self._changed_paths_by_node(graph)
+        connected = _connected_paths_by_node(graph)
+        changed = _changed_paths_by_node(graph)
         convergence = set(flow.convergence_points) if flow is not None else set()
 
         fallback_i = 0
@@ -91,14 +91,6 @@ class GraphScene(QGraphicsScene):
         self.apply_hidden_types(vs.hidden_node_types)
         if keep_selected in self._nodes:
             self.select_node(keep_selected)
-
-    @staticmethod
-    def _connected_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
-        return _connected_paths_by_node(graph)
-
-    @staticmethod
-    def _changed_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
-        return _changed_paths_by_node(graph)
 
     def _add_link(self, link: Link) -> None:
         s_node, t_node = node_of(link.source_path), node_of(link.target_path)
