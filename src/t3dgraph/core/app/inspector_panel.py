@@ -13,14 +13,6 @@ from .scene import _changed_paths_by_node, _connected_paths_by_node
 _PEER_ROLE = Qt.UserRole + 1
 
 
-def _connected_pin_paths(graph: GraphModel) -> set[str]:
-    paths: set[str] = set()
-    for link in graph.links:
-        paths.add(link.source_path)
-        paths.add(link.target_path)
-    return paths
-
-
 def _peer_of(path: str, graph: GraphModel) -> str | None:
     for link in graph.links:
         if link.source_path == path:
@@ -107,7 +99,7 @@ class InspectorPanel(NavigablePanel):
         # connected_paths/changed_paths는 부모 prefix 자동 포함 — full만 체크
         is_in_conn = full in connected_paths
         is_in_chg = full in changed_paths
-        # self vs descendant 구분 — 외부 set 게이팅 후 정확 매칭
+        # is_in_conn is True for ancestor prefixes too — _is_self_target disambiguates direct endpoint vs descendant
         is_self_conn = is_in_conn and self._is_self_target(full, graph)
         is_self_chg = is_in_chg and is_changed_from_default(pin)
         has_desc_conn = is_in_conn and not is_self_conn
