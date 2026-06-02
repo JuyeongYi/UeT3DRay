@@ -112,9 +112,13 @@ class NodeItem(QGraphicsRectItem):
         title.setBrush(QBrush(QColor(235, 235, 235)))
         title.setPos(6, 5)
 
-        if node.subgraph is not None:
+        _state = self._function_entry_state()
+        if _state in ("subgraph", "funcref"):
             chev = QGraphicsSimpleTextItem("▶", self)
-            chev.setBrush(QBrush(QColor(200, 200, 120)))
+            if _state == "subgraph":
+                chev.setBrush(QBrush(QColor("#4CAF50")))
+            else:
+                chev.setBrush(QBrush(QColor("#FFC107")))
             chev.setPos(NODE_WIDTH - 16, 5)
             self.setCursor(Qt.PointingHandCursor)
             self.setToolTip("더블클릭하여 서브그래프 진입")
@@ -199,6 +203,22 @@ class NodeItem(QGraphicsRectItem):
             else:
                 lx = NODE_WIDTH - 8 - label.boundingRect().width() - arrow_w
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+
+    _FUNCREF_CLS_SUFFIX = "RigVMFunctionReferenceNode"
+
+    def _function_entry_state(self) -> str:
+        """chevron 색 결정용 상태 분류.
+
+        Returns:
+            "subgraph"  — subgraph 보유 (초록 chevron)
+            "funcref"   — funcref 클래스이지만 subgraph 없음 (노랑 chevron)
+            "none"      — 해당 없음 (chevron 표시 안 함)
+        """
+        if self.node.subgraph is not None:
+            return "subgraph"
+        if (self.node.cls or "").endswith(self._FUNCREF_CLS_SUFFIX):
+            return "funcref"
+        return "none"
 
     @property
     def bus(self) -> _NodeItemBus:
