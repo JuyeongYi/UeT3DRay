@@ -36,8 +36,16 @@ def _classify_kind(obj: T3DObject) -> str:
         return "function"
     if "ContainedGraph" in obj.properties:
         return "function"
-    notation = _text(obj.properties.get("TemplateNotation")) or ""
-    resolved = _text(obj.properties.get("ResolvedFunctionName")) or ""
+    # property-extension block(cls=None, same name)에서도 속성 확인
+    ext_props: dict = {}
+    for c in obj.children:
+        if c.cls is None and c.name == obj.name:
+            ext_props = c.properties
+            break
+    notation = _text(obj.properties.get("TemplateNotation")
+                     or ext_props.get("TemplateNotation")) or ""
+    resolved = _text(obj.properties.get("ResolvedFunctionName")
+                     or ext_props.get("ResolvedFunctionName")) or ""
     if "ArrayIterator" in notation:
         return "loop"
     if "Sequence" in resolved or "Sequence" in (obj.name or ""):
@@ -268,16 +276,19 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
         # property-extension block(같은 이름, cls=None)은 핀 후보에서 제외
         raw_pins = [_build_pin(c) for c in obj.children
                     if t.is_pin_class(c.cls) or (c.cls is None and c.name != obj.name)]
-        pin_order = _read_ordered_pin_names(obj, "Pins")
-        if pin_order is not None:
-            raw_pins = _reorder_by_names(raw_pins, pin_order)
+        node_kind = _classify_kind(obj)
+        # Sequence 노드는 Pins(N) 권위 정렬 skip — T3D 원본 실행 순서 보존
+        if node_kind != "sequence":
+            pin_order = _read_ordered_pin_names(obj, "Pins")
+            if pin_order is not None:
+                raw_pins = _reorder_by_names(raw_pins, pin_order)
         node = Node(
             name=obj.name or "",
             cls=obj.cls,
             pins=_sort_pins_exec_first(raw_pins),
             position=_position(obj),
             raw=dict(obj.properties),
-            kind=_classify_kind(obj),
+            kind=node_kind,
             display_name=display_name_for(obj),
             role_summary=summary,
             role_category=category,
