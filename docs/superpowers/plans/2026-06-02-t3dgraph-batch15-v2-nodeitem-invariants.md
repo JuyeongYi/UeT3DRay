@@ -6,8 +6,10 @@
 
 - **w1C-A1**: `NodeItem`이 캐시한 `_connected_paths`·`_changed_paths`·`_pin_colors` 무효화 경로 명시 — invariant docstring + `update_state(...)` setter (향후 partial-update API 대비)
 - **w1C-B1**: `_row_children` "행 전용" invariant 강제 — `_header_children` 별도 분리 + `_add_row_item(item)` 헬퍼, 헤더/배지/chevron 신규 추가자가 실수로 행 청소에 휘말리지 않도록 패턴 보호
+- **w1C-fu-A1**: badge null 가드 한쪽만 (`_badge_bg is not None`) — dynamic profile 토글 시점에 NPE 위험. 양쪽 가드 또는 단일 dataclass로 invariant 명시
+- **w1C-fu-B1**: badge 치수 매직 넘버 두 곳 중복 — `_BADGE_WIDTH`/`_BADGE_HEIGHT` 상수 + `_badge_geometry(node_width) -> QRectF` 헬퍼로 한 곳 정의
 
-**Pre-condition:** master `cc3ad78`, 639 tests.
+**Pre-condition:** master `a7f6737`, 640 tests (w1-C follow-up까지 반영).
 
 C1(애니메이션)은 후순위 — 별도 시각 슬라이스에서 처리.
 
@@ -252,6 +254,114 @@ Expected: 전체 643 통과.
 ```bash
 git add tests/app/test_nodeitem_invariants.py src/t3dgraph/core/app/items.py
 git commit -m "refactor(app): separate _header_children + _add_row_item helper (v2-B1)"
+```
+
+---
+
+## Task 3: fu-A1 + fu-B1 — badge 가드 + 치수 상수화
+
+**Files:**
+- Modify: `src/t3dgraph/core/app/items.py`
+- Modify: `tests/app/test_nodeitem_invariants.py`
+
+- [ ] **Step 1: 테스트**
+
+`tests/app/test_nodeitem_invariants.py`에 추가:
+
+```python
+def test_badge_geometry_helper_returns_consistent_rect(qtbot) -> None:
+    """_badge_geometry는 init과 reposition에서 동일 좌표 산출."""
+    from PySide6.QtCore import QRectF
+    from t3dgraph.core.app.items import NodeItem, _BADGE_WIDTH, _BADGE_HEIGHT
+    rect = NodeItem._badge_geometry(node_width=300.0)
+    assert isinstance(rect, QRectF)
+    assert rect.width() == _BADGE_WIDTH
+    assert rect.height() == _BADGE_HEIGHT
+    # node_width 변경 시 x도 같이 이동
+    rect2 = NodeItem._badge_geometry(node_width=400.0)
+    assert rect2.x() == rect.x() + 100.0
+
+
+def test_badge_reposition_guards_both_refs(qtbot) -> None:
+    """badge null 가드 — _badge_bg 또는 _badge_text 한쪽만 None인 분기에서
+    setPos 호출이 NPE 안 던짐 (현재는 양쪽 동시 set이지만 invariant 강제)."""
+    from t3dgraph.core.base.graph_model import Node, Pin
+    from t3dgraph.core.app.items import NodeItem
+    # var badge 없는 노드 (profile 기본 — show_var_badge=False)
+    n = Node(name="N", cls="X", pins=[Pin(name="P", cpp_type="float")])
+    item = NodeItem(n)
+    assert item._badge_bg is None
+    assert item._badge_text is None
+    # set_expanded_paths 호출 — badge reposition 분기가 양쪽 모두 None
+    # 인지하고 skip 해야 NPE 없음
+    item.set_expanded_paths(frozenset())   # noop이지만 분기 실행
+```
+
+- [ ] **Step 2: items.py 상수화 + 양쪽 가드**
+
+`src/t3dgraph/core/app/items.py` 모듈 상수 추가:
+
+```python
+_BADGE_WIDTH = 24.0
+_BADGE_HEIGHT = 14.0
+```
+
+`NodeItem`에 staticmethod 헬퍼:
+
+```python
+    @staticmethod
+    def _badge_geometry(node_width: float) -> QRectF:
+        """var badge 사각형 — node_width 기준 우측 정렬."""
+        badge_x = node_width - _BADGE_WIDTH - 6
+        badge_y = (HEADER_HEIGHT - _BADGE_HEIGHT) / 2
+        return QRectF(badge_x, badge_y, _BADGE_WIDTH, _BADGE_HEIGHT)
+```
+
+`__init__`의 badge 생성 분기:
+
+```python
+        if self._profile.show_var_badge:
+            var_color = QColor("#9966FF")
+            if pin_colors is not None:
+                var_color = pin_colors._palette.get("variable", var_color)
+            geom = self._badge_geometry(self._node_width)
+            badge_bg = QGraphicsRectItem(geom, self)
+            badge_bg.setBrush(QBrush(var_color))
+            badge_bg.setPen(QPen(Qt.NoPen))
+            badge_text = QGraphicsSimpleTextItem("var", self)
+            badge_text.setBrush(QBrush(QColor(255, 255, 255)))
+            badge_text.setPos(geom.x() + 5, geom.y() + 1)
+            self._badge_bg = badge_bg
+            self._badge_text = badge_text
+            self._header_children.append(badge_bg)
+            self._header_children.append(badge_text)
+        else:
+            self._badge_bg = None
+            self._badge_text = None
+```
+
+`set_expanded_paths`의 badge reposition 분기 — 양쪽 가드:
+
+```python
+        if self._badge_bg is not None and self._badge_text is not None:
+            geom = self._badge_geometry(self._node_width)
+            self._badge_bg.setRect(geom)
+            self._badge_text.setPos(geom.x() + 5, geom.y() + 1)
+```
+
+- [ ] **Step 3: 실행**
+
+Run: `pytest tests/app/test_nodeitem_invariants.py -v`
+Expected: 6 passed (Task 1+2+3).
+
+Run: `pytest tests -v`
+Expected: 전체 646 통과 (640 + 신규 6).
+
+- [ ] **Step 4: 커밋**
+
+```bash
+git add tests/app/test_nodeitem_invariants.py src/t3dgraph/core/app/items.py
+git commit -m "refactor(app): badge geometry helper + dual-ref null guard (v2-fu-A1+B1)"
 ```
 
 ---
