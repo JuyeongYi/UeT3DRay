@@ -19,9 +19,10 @@ def test_inspector_header_includes_role_summary(qapp):
         role_category="Unit",
     )])
     panel.show_node(g.nodes[0], g)
-    assert "Begin Execution" in panel._title.text()
-    assert "Unit" in panel._title.text()
-    assert "RigUnit_BeginExecution" in panel._title.text()
+    full = panel._title.toolTip()  # F24: 전체 텍스트는 toolTip에
+    assert "Begin Execution" in full
+    assert "Unit" in full
+    assert "RigUnit_BeginExecution" in full
 
 
 def test_inspector_header_skips_role_when_absent(qapp):

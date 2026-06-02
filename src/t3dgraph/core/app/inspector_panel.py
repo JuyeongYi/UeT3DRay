@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
-    QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QHeaderView,
+    QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QHeaderView, QSizePolicy,
 )
 from ..base.graph_model import GraphModel, Node, Pin
 from .pin_status import is_changed_from_default
@@ -35,6 +35,11 @@ class InspectorPanel(NavigablePanel):
         super().__init__()
         layout = QVBoxLayout(self)
         self._title = QLabel("(노드를 선택하세요)")
+        self._title.setWordWrap(False)
+        self._title.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        fm = QFontMetrics(self._title.font())
+        self._title.setMaximumHeight(fm.lineSpacing() + 4)
+        self._title_raw_text: str = "(노드를 선택하세요)"
         self._tree = QTreeWidget()
         self._tree.setColumnCount(5)
         self._tree.setHeaderLabels(["핀", "타입", "방향", "기본값", "상태"])
@@ -55,7 +60,7 @@ class InspectorPanel(NavigablePanel):
         self._tree.clear()
         self._items = {}
         if node is None:
-            self._title.setText("(노드를 선택하세요)")
+            self._set_title("(노드를 선택하세요)")
             return
         header = node.display_name or node.name or "?"
         cls_part = node.cls or "?"
@@ -65,10 +70,25 @@ class InspectorPanel(NavigablePanel):
         if node.role_summary:
             role_bits.append(node.role_summary)
         role_suffix = f"   ·   역할: {' · '.join(role_bits)}" if role_bits else ""
-        self._title.setText(f"{header}  [{cls_part}]{role_suffix}")
+        self._set_title(f"{header}  [{cls_part}]{role_suffix}")
         connected = _connected_pin_paths(graph)
         for pin in node.pins:
             self._add_pin(pin, node.name, pin.name, connected, graph, self._tree.invisibleRootItem())
+
+    def _set_title(self, raw_text: str) -> None:
+        self._title_raw_text = raw_text
+        self._apply_title_elide()
+
+    def _apply_title_elide(self) -> None:
+        fm = QFontMetrics(self._title.font())
+        available = max(self._title.width() - 12, 100)
+        elided = fm.elidedText(self._title_raw_text, Qt.ElideRight, available)
+        self._title.setText(elided)
+        self._title.setToolTip(self._title_raw_text)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_title_elide()
 
     def _add_pin(self, pin: Pin, node_name: str, path: str,
                  connected: set[str], graph: GraphModel, parent: QTreeWidgetItem) -> None:
