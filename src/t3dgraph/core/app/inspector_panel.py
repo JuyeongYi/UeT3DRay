@@ -93,10 +93,20 @@ class InspectorPanel(NavigablePanel):
     def _add_pin(self, pin: Pin, node_name: str, path: str,
                  connected: set[str], graph: GraphModel, parent: QTreeWidgetItem) -> None:
         full = f"{node_name}.{path}"
-        is_conn = full in connected
-        is_chg = is_changed_from_default(pin)
-        status = " · ".join(
-            s for s in ("연결됨" if is_conn else "", "변경됨(추정)" if is_chg else "") if s)
+        is_self_conn = full in connected
+        is_self_chg = is_changed_from_default(pin)
+        has_desc_conn = self._has_connected_descendant(pin, full, connected)
+        has_desc_chg = self._has_changed_descendant(pin)
+        status_parts = []
+        if is_self_conn:
+            status_parts.append("연결됨")
+        elif has_desc_conn:
+            status_parts.append("원소 연결됨")
+        if is_self_chg:
+            status_parts.append("변경됨(추정)")
+        elif has_desc_chg:
+            status_parts.append("원소 변경됨")
+        status = " · ".join(status_parts)
         default_text = pin.default_value or ""
         if pin.variable_source:
             if default_text:
@@ -107,7 +117,7 @@ class InspectorPanel(NavigablePanel):
                  default_text, status]
         item = QTreeWidgetItem(texts)
         self._apply_truncation_tooltips(item, texts)
-        if is_conn:
+        if is_self_conn:
             peer = _peer_of(full, graph)
             if peer:
                 item.setData(0, _PEER_ROLE, peer)
@@ -115,6 +125,25 @@ class InspectorPanel(NavigablePanel):
         self._items[full] = item
         for sub in pin.subpins:
             self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
+
+    @staticmethod
+    def _has_connected_descendant(pin: Pin, full: str, connected: set[str]) -> bool:
+        for sp in pin.subpins:
+            sub_full = f"{full}.{sp.name}"
+            if sub_full in connected:
+                return True
+            if InspectorPanel._has_connected_descendant(sp, sub_full, connected):
+                return True
+        return False
+
+    @staticmethod
+    def _has_changed_descendant(pin: Pin) -> bool:
+        for sp in pin.subpins:
+            if is_changed_from_default(sp):
+                return True
+            if InspectorPanel._has_changed_descendant(sp):
+                return True
+        return False
 
     _CELL_PAD_PX = 12  # 셀 좌우 패딩 추정치
 
