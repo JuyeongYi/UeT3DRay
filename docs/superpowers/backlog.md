@@ -360,6 +360,15 @@ batch ⑮ UX 확장 6 슬라이스 (가운데 클릭 패닝 + 미니맵 진입 +
 | u7-B1 | `_on_auto_arrange`·`_on_hierarchical_arrange` 4단계 패턴 복제 — `_apply_layout(positions, msg)` 헬퍼. |
 | FEAT-55 (u7-C1) | 레이아웃 액션 + 드래그 QUndoStack 통합 — ν-C2와 family. Ctrl+Z로 이전 배치 복귀. |
 
+### improver batch ⑮ u8 리뷰 findings (2026-06-02, master 694f180) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| u8-A1 | Sequence 식별 substring 매칭 — `RigVMSequencePlayer`, 사용자 `MySequenceBuilder` 등 false positive. 정확한 토큰 매칭 또는 NodeProfileTable 명시 entry. |
+| u8-A2 | Sequence 라벨 숨김 후 핀 인덱스 식별 불가 — `dot.setToolTip(f"Sequence {pin.name}")` hover 정보 제공. |
+| **u8-B1** | `node.kind != "sequence"` if 분기를 NodeStyleProfile.hide_pin_labels로 데이터화 — batch ⑭ k1 시스템 일관 활용. **TOML 한 줄로 Branch/Switch 등 라벨 숨김 노드 추가 가능**. |
+| u8-B2 | `_classify_kind`의 property-extension block 룩업 — `_ext_props(obj)` 헬퍼로 추출. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
