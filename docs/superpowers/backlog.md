@@ -351,6 +351,15 @@ batch ⑮ UX 확장 6 슬라이스 (가운데 클릭 패닝 + 미니맵 진입 +
 
 **메모:** **⑮-A1**(라벨/키 불일치) 빠른 1순위 핫픽스 후보. **⑮-A2**·**⑮-B2** 다음 정리 슬라이스 묶음.
 
+### improver batch ⑮ u7 리뷰 findings (2026-06-02, master 2ba705d) — 미처리
+
+| ID | 내용 |
+| --- | --- |
+| **u7-A1** | `rank()` 내부 O(E²) — 큰 그래프(Orion 등)에서 메뉴 클릭 지연. parent → outgoing pin index 역인덱스 한 번 구축 후 룩업. |
+| u7-A2 | exec link 없으면 graceful degradation X — 모든 노드 row 0 일렬 배치. statusBar 경고 또는 data link 폴백. |
+| u7-B1 | `_on_auto_arrange`·`_on_hierarchical_arrange` 4단계 패턴 복제 — `_apply_layout(positions, msg)` 헬퍼. |
+| FEAT-55 (u7-C1) | 레이아웃 액션 + 드래그 QUndoStack 통합 — ν-C2와 family. Ctrl+Z로 이전 배치 복귀. |
+
 ### 기능 추가 (spec §3.3 향후 확장)
 
 | ID | 내용 |
