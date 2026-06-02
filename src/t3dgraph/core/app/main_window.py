@@ -509,7 +509,12 @@ class MainWindow(QMainWindow):
         self.current_view_state().select(name)
         if self.graph is not None:
             node = self.graph.node_by_name(name) if name else None
-            self.inspector.show_node(node, self.graph)
+            from .scene import _changed_paths_by_node, _connected_paths_by_node
+            changed_set = _changed_paths_by_node(self.graph).get(node.name, set()) if node else set()
+            connected_set = _connected_paths_by_node(self.graph).get(node.name, set()) if node else set()
+            self.inspector.show_node(node, self.graph,
+                                     changed_paths=changed_set,
+                                     connected_paths=connected_set)
         self.analysis_panel.highlight_node(name)
         self.exec_order_panel.highlight_node(name)
         self.data_flow_panel.highlight_node(name)

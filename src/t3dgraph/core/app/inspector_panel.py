@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from ..base.graph_model import GraphModel, Node, Pin
 from .pin_status import is_changed_from_default
 from .navigable_panel import NavigablePanel
+from .scene import _changed_paths_by_node, _connected_paths_by_node
 
 _PEER_ROLE = Qt.UserRole + 1
 
@@ -56,7 +57,10 @@ class InspectorPanel(NavigablePanel):
         header.sectionResized.connect(self._on_section_resized)
         self._items: dict[str, QTreeWidgetItem] = {}
 
-    def show_node(self, node: Node | None, graph: GraphModel) -> None:
+    def show_node(self, node: Node | None, graph: GraphModel,
+                  *,
+                  changed_paths: set[str] | None = None,
+                  connected_paths: set[str] | None = None) -> None:
         self._tree.clear()
         self._items = {}
         if node is None:
@@ -71,9 +75,15 @@ class InspectorPanel(NavigablePanel):
             role_bits.append(node.role_summary)
         role_suffix = f"   ·   역할: {' · '.join(role_bits)}" if role_bits else ""
         self._set_title(f"{header}  [{cls_part}]{role_suffix}")
-        connected = _connected_pin_paths(graph)
+        # 단일 진실원 — 외부에서 받으면 그대로, 아니면 모듈 함수로 계산
+        if changed_paths is None:
+            changed_paths = _changed_paths_by_node(graph).get(node.name, set())
+        if connected_paths is None:
+            connected_paths = _connected_paths_by_node(graph).get(node.name, set())
         for pin in node.pins:
-            self._add_pin(pin, node.name, pin.name, connected, graph, self._tree.invisibleRootItem())
+            self._add_pin(pin, node.name, pin.name,
+                          changed_paths, connected_paths, graph,
+                          self._tree.invisibleRootItem())
 
     def _set_title(self, raw_text: str) -> None:
         self._title_raw_text = raw_text
@@ -91,18 +101,27 @@ class InspectorPanel(NavigablePanel):
         self._apply_title_elide()
 
     def _add_pin(self, pin: Pin, node_name: str, path: str,
-                 connected: set[str], graph: GraphModel, parent: QTreeWidgetItem) -> None:
+                 changed_paths: set[str], connected_paths: set[str],
+                 graph: GraphModel, parent: QTreeWidgetItem) -> None:
         full = f"{node_name}.{path}"
-        is_self_conn = full in connected
-        is_self_chg = is_changed_from_default(pin)
-        has_desc_conn = self._has_connected_descendant(pin, full, connected)
-        has_desc_chg = self._has_changed_descendant(pin)
+        # connected_paths/changed_paths는 부모 prefix 자동 포함 — full만 체크
+        is_in_conn = full in connected_paths
+        is_in_chg = full in changed_paths
+        # self vs descendant 구분 — 외부 set 게이팅 후 정확 매칭
+        is_self_conn = is_in_conn and self._is_self_target(full, graph)
+        is_self_chg = is_in_chg and is_changed_from_default(pin)
+        has_desc_conn = is_in_conn and not is_self_conn
+        has_desc_chg = is_in_chg and not is_self_chg
         status_parts = []
-        if is_self_conn:
+        if is_self_conn and has_desc_conn:
+            status_parts.append("연결됨 (원소 포함)")
+        elif is_self_conn:
             status_parts.append("연결됨")
         elif has_desc_conn:
             status_parts.append("원소 연결됨")
-        if is_self_chg:
+        if is_self_chg and has_desc_chg:
+            status_parts.append("변경됨(추정) (원소 포함)")
+        elif is_self_chg:
             status_parts.append("변경됨(추정)")
         elif has_desc_chg:
             status_parts.append("원소 변경됨")
@@ -124,24 +143,13 @@ class InspectorPanel(NavigablePanel):
         parent.addChild(item)
         self._items[full] = item
         for sub in pin.subpins:
-            self._add_pin(sub, node_name, f"{path}.{sub.name}", connected, graph, item)
+            self._add_pin(sub, node_name, f"{path}.{sub.name}",
+                          changed_paths, connected_paths, graph, item)
 
     @staticmethod
-    def _has_connected_descendant(pin: Pin, full: str, connected: set[str]) -> bool:
-        for sp in pin.subpins:
-            sub_full = f"{full}.{sp.name}"
-            if sub_full in connected:
-                return True
-            if InspectorPanel._has_connected_descendant(sp, sub_full, connected):
-                return True
-        return False
-
-    @staticmethod
-    def _has_changed_descendant(pin: Pin) -> bool:
-        for sp in pin.subpins:
-            if is_changed_from_default(sp):
-                return True
-            if InspectorPanel._has_changed_descendant(sp):
+    def _is_self_target(full: str, graph: GraphModel) -> bool:
+        for link in graph.links:
+            if link.source_path == full or link.target_path == full:
                 return True
         return False
 
