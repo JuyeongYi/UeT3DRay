@@ -119,6 +119,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction("종료").triggered.connect(self.close)
         view_menu = self.menuBar().addMenu("보기")
         view_menu.addAction("핀 색 팔레트 리셋").triggered.connect(self._on_reset_palette)
+        view_menu.addAction("자동 정렬").triggered.connect(self._on_auto_arrange)
 
     def _on_reset_palette(self) -> None:
         from PySide6.QtWidgets import QMessageBox
@@ -138,6 +139,35 @@ class MainWindow(QMainWindow):
             return
         self._rebuild_scene()
         self.statusBar().showMessage("핀 색 팔레트를 디폴트로 되돌렸습니다.", 4000)
+
+    def _on_auto_arrange(self) -> None:
+        if self.graph is None:
+            return
+        from .auto_layout import resolve_overlaps
+        key = self._current_graph_key()
+        positions: dict[str, tuple[float, float]] = {}
+        sizes: dict[str, tuple[float, float]] = {}
+        for node in self.graph.nodes:
+            override = self.layout_overrides.get(key, node.name)
+            if override is not None:
+                x, y = override
+            elif node.position is not None:
+                x, y = node.position
+            else:
+                x, y = 0.0, 0.0
+            positions[node.name] = (x, y)
+            item = self.scene.node_item(node.name)
+            if item is not None:
+                br = item.boundingRect()
+                sizes[node.name] = (br.width(), br.height())
+            else:
+                sizes[node.name] = (200.0, 100.0)
+        new_positions = resolve_overlaps(positions, sizes)
+        for name, (x, y) in new_positions.items():
+            self.layout_overrides.set(key, name, x, y)
+        self._schedule_save_state()
+        self._rebuild_scene()
+        self.statusBar().showMessage("노드 자동 정렬 완료", 4000)
 
     def _show_palette_load_failure_dialog(self) -> None:
         exc = self._palette_load_exc
