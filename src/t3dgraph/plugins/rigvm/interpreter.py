@@ -79,6 +79,11 @@ def _sort_array_subpins(subpins: list[Pin]) -> list[Pin]:
     return sorted(subpins, key=lambda p: int(_ARRAY_PATTERN.match(p.name).group(2)))
 
 
+def _sort_pins_exec_first(pins: list[Pin]) -> list[Pin]:
+    """실행 핀(is_execution=True)을 앞쪽으로 안정 정렬. 그 외 순서 보존."""
+    return sorted(pins, key=lambda p: (not p.is_execution,))
+
+
 def _build_pin(obj: T3DObject) -> Pin:
     cpp_type = _text(obj.properties.get("CPPType"))
     return Pin(
@@ -187,10 +192,11 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                   diagnostics: InterpreterDiagnostics,
                   depth: int = 0, max_depth: int = 64) -> None:
         summary, category = role_for(obj)
+        raw_pins = [_build_pin(c) for c in obj.children if t.is_pin_class(c.cls) or c.cls is None]
         node = Node(
             name=obj.name or "",
             cls=obj.cls,
-            pins=[_build_pin(c) for c in obj.children if t.is_pin_class(c.cls) or c.cls is None],
+            pins=_sort_pins_exec_first(raw_pins),
             position=_position(obj),
             raw=dict(obj.properties),
             kind=_classify_kind(obj),
