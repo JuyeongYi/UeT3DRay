@@ -79,6 +79,56 @@ def _sort_array_subpins(subpins: list[Pin]) -> list[Pin]:
     return sorted(subpins, key=lambda p: int(_ARRAY_PATTERN.match(p.name).group(2)))
 
 
+def _extract_pin_name_from_path(path_token: str) -> str | None:
+    """Pins(N)/SubPins(N) 값 형식 '...'PinName'' → 핀 이름 추출."""
+    m = re.search(r"'([^']+)'", path_token)
+    if m:
+        return m.group(1).rsplit(".", 1)[-1]
+    return None
+
+
+def _read_ordered_pin_names(obj: T3DObject, prefix: str) -> list[str] | None:
+    """`Pins(N)=...` / `SubPins(N)=...` 속성에서 권위 순서 추출.
+
+    obj.properties 먼저 확인, 없으면 같은 이름의 cls=None 자식 블록 확인.
+    """
+    pattern = re.compile(rf"^{prefix}\((\d+)\)$")
+
+    def _scan(props: dict) -> list[tuple[int, str]]:
+        indexed: list[tuple[int, str]] = []
+        for key, value in props.items():
+            m = pattern.match(key)
+            if m is None:
+                continue
+            text = _text(value)
+            if text is None:
+                continue
+            name = _extract_pin_name_from_path(text)
+            if name:
+                indexed.append((int(m.group(1)), name))
+        return indexed
+
+    indexed = _scan(obj.properties)
+    if not indexed:
+        for c in obj.children:
+            if c.cls is None and c.name == obj.name:
+                indexed = _scan(c.properties)
+                break
+    if not indexed:
+        return None
+    indexed.sort(key=lambda iv: iv[0])
+    return [name for _, name in indexed]
+
+
+def _reorder_by_names(pins: list[Pin], names: list[str]) -> list[Pin]:
+    """권위 순서(names)대로 pins 재정렬. names에 없는 핀은 원순서로 뒤에."""
+    name_set = set(names)
+    by_name = {p.name: p for p in pins}
+    ordered = [by_name[n] for n in names if n in by_name]
+    leftover = [p for p in pins if p.name not in name_set]
+    return ordered + leftover
+
+
 def _sort_pins_exec_first(pins: list[Pin]) -> list[Pin]:
     """실행 핀(is_execution=True)을 앞쪽으로 안정 정렬.
 
@@ -101,13 +151,21 @@ def _sort_pins_exec_first(pins: list[Pin]) -> list[Pin]:
 
 def _build_pin(obj: T3DObject) -> Pin:
     cpp_type = _text(obj.properties.get("CPPType"))
+    # property-extension block(같은 이름, cls=None)은 subpin 후보에서 제외
+    child_pins = [_build_pin(c) for c in obj.children
+                  if t.is_pin_class(c.cls) or (c.cls is None and c.name != obj.name)]
+    ordered_names = _read_ordered_pin_names(obj, "SubPins")
+    if ordered_names is not None:
+        child_pins = _reorder_by_names(child_pins, ordered_names)
+    else:
+        child_pins = _sort_array_subpins(child_pins)
     return Pin(
         name=obj.name or "",
         cpp_type=cpp_type,
         direction=_text(obj.properties.get("Direction")),
         default_value=_text(obj.properties.get("DefaultValue")),
         is_execution=t.is_execution_cpp_type(cpp_type),
-        subpins=_sort_array_subpins([_build_pin(c) for c in obj.children]),
+        subpins=child_pins,
         raw=dict(obj.properties),
     )
 
@@ -207,7 +265,12 @@ class RigVMGraphInterpreter(AbstractGraphInterpreter):
                   diagnostics: InterpreterDiagnostics,
                   depth: int = 0, max_depth: int = 64) -> None:
         summary, category = role_for(obj)
-        raw_pins = [_build_pin(c) for c in obj.children if t.is_pin_class(c.cls) or c.cls is None]
+        # property-extension block(같은 이름, cls=None)은 핀 후보에서 제외
+        raw_pins = [_build_pin(c) for c in obj.children
+                    if t.is_pin_class(c.cls) or (c.cls is None and c.name != obj.name)]
+        pin_order = _read_ordered_pin_names(obj, "Pins")
+        if pin_order is not None:
+            raw_pins = _reorder_by_names(raw_pins, pin_order)
         node = Node(
             name=obj.name or "",
             cls=obj.cls,
