@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from PySide6.QtCore import QObject, QRectF, QPointF, Qt, Signal
-from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QLinearGradient
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
     QGraphicsPathItem, QGraphicsItem,
@@ -317,11 +317,18 @@ class LinkItem(QGraphicsPathItem):
 
     def __init__(self, p1: QPointF, p2: QPointF, *,
                  pen_color: "QColor | None" = None,
+                 pen_color_end: "QColor | None" = None,
                  width: float = 1.5,
                  is_execution: bool = False):
         super().__init__(self._build_path(p1, p2))
         color = pen_color if pen_color is not None else QColor("#AAAAAA")
-        pen = QPen(color, width)
+        if is_execution or pen_color_end is None or pen_color_end == color:
+            pen = QPen(color, width)
+        else:
+            gradient = QLinearGradient(p1, p2)
+            gradient.setColorAt(0.0, color)
+            gradient.setColorAt(1.0, pen_color_end)
+            pen = QPen(QBrush(gradient), width)
         if is_execution:
             pen.setStyle(Qt.CustomDashLine)
             pen.setDashPattern([4, 3])

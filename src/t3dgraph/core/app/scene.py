@@ -104,6 +104,7 @@ class GraphScene(QGraphicsScene):
         p1 = src.pin_anchor(s_sub, "Output")
         p2 = dst.pin_anchor(t_sub, "Input")
         color = None
+        color_end = None
         is_exec = False
         if self._graph is not None:
             src_pin = self._graph.find_pin(link.source_path)
@@ -111,8 +112,13 @@ class GraphScene(QGraphicsScene):
                 is_exec = src_pin.is_execution
                 if self._pin_colors is not None:
                     color = self._pin_colors.resolve(src_pin.cpp_type).color
+            if not is_exec and self._pin_colors is not None:
+                dst_pin = self._graph.find_pin(link.target_path)
+                if dst_pin is not None:
+                    color_end = self._pin_colors.resolve(dst_pin.cpp_type).color
         width = 3.0 if is_exec else 1.5
-        item = LinkItem(p1, p2, pen_color=color, width=width, is_execution=is_exec)
+        item = LinkItem(p1, p2, pen_color=color, pen_color_end=color_end,
+                        width=width, is_execution=is_exec)
         self.addItem(item)
         self._links.append((item, s_node, s_sub, t_node, t_sub))
 
