@@ -146,11 +146,12 @@ class NodeItem(QGraphicsRectItem):
             is_output = direction == "output"
             is_input_side = not is_output and not is_io
             label_color = QColor(150, 150, 150) if is_hidden else QColor(210, 210, 210)
+            dot_r = 6.0 if row.pin.is_execution else PIN_RADIUS
             if row.has_dot and not is_hidden:
-                def _make_dot(mx: float, _row=row) -> QGraphicsEllipseItem:
+                def _make_dot(mx: float, _row=row, _r=dot_r) -> QGraphicsEllipseItem:
                     dot = QGraphicsEllipseItem(
-                        mx - PIN_RADIUS, cy - PIN_RADIUS,
-                        2 * PIN_RADIUS, 2 * PIN_RADIUS, self)
+                        mx - _r, cy - _r,
+                        2 * _r, 2 * _r, self)
                     if pin_colors is not None:
                         resolved = pin_colors.resolve(_row.pin.cpp_type)
                         dot.setBrush(QBrush(resolved.color))
@@ -189,6 +190,10 @@ class NodeItem(QGraphicsRectItem):
                 label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
             label = QGraphicsSimpleTextItem(label_text, self)
             label.setBrush(QBrush(label_color))
+            if row.pin.is_execution:
+                f = label.font()
+                f.setBold(True)
+                label.setFont(f)
             if is_input_side:
                 lx = indent
             else:
