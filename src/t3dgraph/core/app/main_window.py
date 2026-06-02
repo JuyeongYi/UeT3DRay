@@ -499,7 +499,10 @@ class MainWindow(QMainWindow):
         try:
             selected = [item for item in self.scene._nodes.values()
                         if item.isSelected()]
-        except RuntimeError:
+        except RuntimeError as exc:
+            import logging
+            logging.getLogger(__name__).debug(
+                "_on_scene_selection: RuntimeError skipped: %s", exc)
             return
         if len(selected) > 1:
             self.current_view_state().select(None)
