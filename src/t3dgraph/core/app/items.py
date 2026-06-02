@@ -395,7 +395,7 @@ class NodeItem(QGraphicsRectItem):
         self.setRect(QRectF(0, 0, self._node_width, height))
         if self._chevron is not None:
             self._chevron.setPos(self._node_width - 16, 5)
-        if self._badge_bg is not None:
+        if self._badge_bg is not None and self._badge_text is not None:
             badge_w, badge_h = 24.0, 14.0
             badge_x = self._node_width - badge_w - 6
             badge_y = (HEADER_HEIGHT - badge_h) / 2
