@@ -97,6 +97,12 @@ class NodeItem(QGraphicsRectItem):
         profile: "NodeStyleProfile | None" = None,
     ):
         self._profile: NodeStyleProfile = profile if profile is not None else NodeStyleProfile()
+        # w1-C: 인스턴스 상태 보존 — set_expanded_paths() 에서 재사용
+        self._connected_paths = connected_paths
+        self._changed_paths = changed_paths
+        self._connected_only = connected_only
+        self._expanded_paths = expanded_paths
+        self._pin_colors = pin_colors
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 changed_pins=changed_paths,
                                 connected_only=connected_only,
@@ -157,81 +163,8 @@ class NodeItem(QGraphicsRectItem):
         self._rows: dict[str, float] = {}
         self._row_paths: list[str] = [r.path for r in rows]
         self._arrow_zones: dict[str, tuple[float, float, float]] = {}  # path -> (x0, x1, cy)
-        for i, row in enumerate(rows):
-            cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
-            self._rows[row.path] = cy
-            direction = row.effective_direction
-            is_hidden = direction == "hidden"
-            is_io = direction == "io"
-            is_output = direction == "output"
-            _hint = self._profile.layout_hint
-            if _hint == "outputs_only":
-                is_input_side = False
-            elif _hint == "inputs_only":
-                is_input_side = True
-            else:
-                is_input_side = not is_output and not is_io
-            label_color = QColor(150, 150, 150) if is_hidden else QColor(210, 210, 210)
-            dot_r = 6.0 if row.pin.is_execution else PIN_RADIUS
-            if row.has_dot and not is_hidden:
-                def _make_dot(mx: float, _row=row, _r=dot_r) -> QGraphicsEllipseItem:
-                    dot = QGraphicsEllipseItem(
-                        mx - _r, cy - _r,
-                        2 * _r, 2 * _r, self)
-                    if pin_colors is not None:
-                        resolved = pin_colors.resolve(_row.pin.cpp_type)
-                        dot.setBrush(QBrush(resolved.color))
-                        if resolved.is_array:
-                            dot.setPen(QPen(QColor(40, 40, 40), 1.5))
-                        else:
-                            dot.setPen(QPen(Qt.NoPen))
-                    else:
-                        dot.setBrush(QBrush(QColor(200, 200, 120)))
-                        dot.setPen(QPen(Qt.NoPen))
-                    return dot
-                if _hint == "outputs_only":
-                    _make_dot(self._node_width)
-                elif _hint == "inputs_only":
-                    _make_dot(0.0)
-                elif is_output:
-                    _make_dot(self._node_width)
-                elif is_io:
-                    _make_dot(0.0)
-                    _make_dot(self._node_width)
-                else:
-                    _make_dot(0.0)
-            indent = 18 + row.depth * 12
-            arrow_w = 0.0
-            if row.has_children:
-                arrow_char = "▼" if row.path in expanded_paths else "▶"
-                arrow = QGraphicsSimpleTextItem(arrow_char, self)
-                arrow.setBrush(QBrush(QColor(210, 210, 210)))
-                arrow_w = arrow.boundingRect().width()
-                if is_input_side:
-                    ax = indent - 14
-                    zone = (PIN_RADIUS + 2, indent - 2)
-                else:
-                    ax = self._node_width - indent + 2
-                    zone = (self._node_width - indent + 2, self._node_width - PIN_RADIUS - 2)
-                arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
-                self._arrow_zones[row.path] = (zone[0], zone[1], cy)
-            # sequence 노드는 핀 라벨 숨김 (dot만 표시 — 그래프 흐름으로 평가)
-            if node.kind != "sequence":
-                label_text = row.pin.name
-                if row.pin.variable_source:
-                    label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
-                label = QGraphicsSimpleTextItem(label_text, self)
-                label.setBrush(QBrush(label_color))
-                is_modified = (row.path in connected_paths) or (row.path in changed_paths)
-                if row.pin.is_execution or is_modified:
-                    f = label.font()
-                    f.setBold(True)
-                    label.setFont(f)
-                if is_input_side:
-                    lx = indent
-                else:
-                    lx = self._node_width - 8 - label.boundingRect().width() - arrow_w
-                label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+        self._row_children: list = []
+        self._install_rows(rows)
 
     @staticmethod
     def _compute_width(node: "Node", rows: "list[PinRow]") -> float:
@@ -347,6 +280,114 @@ class NodeItem(QGraphicsRectItem):
         lx = self._node_width if (direction or "").lower() == "output" else 0.0
         return self.mapToScene(QPointF(lx, cy))
 
+
+    def _install_rows(self, rows: "list[PinRow]") -> None:
+        for i, row in enumerate(rows):
+            cy = HEADER_HEIGHT + i * ROW_HEIGHT + ROW_HEIGHT / 2
+            self._rows[row.path] = cy
+            direction = row.effective_direction
+            is_hidden = direction == "hidden"
+            is_io = direction == "io"
+            is_output = direction == "output"
+            _hint = self._profile.layout_hint
+            if _hint == "outputs_only":
+                is_input_side = False
+            elif _hint == "inputs_only":
+                is_input_side = True
+            else:
+                is_input_side = not is_output and not is_io
+            label_color = QColor(150, 150, 150) if is_hidden else QColor(210, 210, 210)
+            dot_r = 6.0 if row.pin.is_execution else PIN_RADIUS
+            if row.has_dot and not is_hidden:
+                def _make_dot(mx: float, _row=row, _r=dot_r, _cy=cy) -> QGraphicsEllipseItem:
+                    dot = QGraphicsEllipseItem(mx - _r, _cy - _r, 2 * _r, 2 * _r, self)
+                    if self._pin_colors is not None:
+                        resolved = self._pin_colors.resolve(_row.pin.cpp_type)
+                        dot.setBrush(QBrush(resolved.color))
+                        if resolved.is_array:
+                            dot.setPen(QPen(QColor(40, 40, 40), 1.5))
+                        else:
+                            dot.setPen(QPen(Qt.NoPen))
+                    else:
+                        dot.setBrush(QBrush(QColor(200, 200, 120)))
+                        dot.setPen(QPen(Qt.NoPen))
+                    self._row_children.append(dot)
+                    return dot
+                if _hint == "outputs_only":
+                    _make_dot(self._node_width)
+                elif _hint == "inputs_only":
+                    _make_dot(0.0)
+                elif is_output:
+                    _make_dot(self._node_width)
+                elif is_io:
+                    _make_dot(0.0)
+                    _make_dot(self._node_width)
+                else:
+                    _make_dot(0.0)
+            indent = 18 + row.depth * 12
+            arrow_w = 0.0
+            if row.has_children:
+                arrow_char = "▼" if row.path in self._expanded_paths else "▶"
+                arrow = QGraphicsSimpleTextItem(arrow_char, self)
+                self._row_children.append(arrow)
+                arrow.setBrush(QBrush(QColor(210, 210, 210)))
+                arrow_w = arrow.boundingRect().width()
+                if is_input_side:
+                    ax = indent - 14
+                    zone = (PIN_RADIUS + 2, indent - 2)
+                else:
+                    ax = self._node_width - indent + 2
+                    zone = (self._node_width - indent + 2, self._node_width - PIN_RADIUS - 2)
+                arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
+                self._arrow_zones[row.path] = (zone[0], zone[1], cy)
+            # sequence 노드는 핀 라벨 숨김 (dot만 표시)
+            if self.node.kind != "sequence":
+                label_text = row.pin.name
+                if row.pin.variable_source:
+                    label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
+                label = QGraphicsSimpleTextItem(label_text, self)
+                self._row_children.append(label)
+                label.setBrush(QBrush(label_color))
+                is_modified = (row.path in self._connected_paths) or (row.path in self._changed_paths)
+                if row.pin.is_execution or is_modified:
+                    f = label.font()
+                    f.setBold(True)
+                    label.setFont(f)
+                if is_input_side:
+                    lx = indent
+                else:
+                    lx = self._node_width - 8 - label.boundingRect().width() - arrow_w
+                label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+
+    def _clear_rows(self) -> None:
+        sc = self.scene()
+        for child in self._row_children:
+            child.setParentItem(None)
+            if sc is not None:
+                sc.removeItem(child)
+        self._row_children.clear()
+        self._rows.clear()
+        self._arrow_zones.clear()
+
+    def set_expanded_paths(self, expanded: frozenset[str]) -> None:
+        if expanded == self._expanded_paths:
+            return
+        self._expanded_paths = expanded
+        rows = collect_pin_rows(self.node,
+                                connected_subtree=self._connected_paths,
+                                changed_pins=self._changed_paths,
+                                connected_only=self._connected_only,
+                                expanded=expanded)
+        self._node_width = self._compute_width(self.node, rows)
+        if self._profile.layout_hint == "passthrough":
+            height = HEADER_HEIGHT + ROW_HEIGHT
+        else:
+            height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
+        self.prepareGeometryChange()
+        self.setRect(QRectF(0, 0, self._node_width, height))
+        self._clear_rows()
+        self._row_paths = [r.path for r in rows]
+        self._install_rows(rows)
 
     def set_highlighted(self, on: bool) -> None:
         if on:

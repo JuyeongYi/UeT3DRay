@@ -125,6 +125,14 @@ class GraphScene(QGraphicsScene):
         self.addItem(item)
         self._links.append((item, s_node, s_sub, t_node, t_sub))
 
+    def update_node_expansion(self, node_name: str, expanded_paths: frozenset[str]) -> None:
+        """핀 토글 후 NodeItem을 in-place로 갱신 — scene.clear() 없이 행만 재빌드."""
+        item = self._nodes.get(node_name)
+        if item is None:
+            return
+        item.set_expanded_paths(expanded_paths)
+        self._update_links_for_node(node_name)
+
     def _relay_position_changed(self, name: str, x: float, y: float) -> None:
         if not self._populating:
             self.node_position_changed.emit(name, x, y)

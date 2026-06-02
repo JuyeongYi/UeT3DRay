@@ -471,7 +471,12 @@ class MainWindow(QMainWindow):
 
     def _on_pin_toggle(self, full_path: str) -> None:
         self.current_view_state().toggle_pin_expanded(full_path)
-        self._rebuild_scene()
+        node_name = full_path.split(".", 1)[0]
+        vs = self.current_view_state()
+        expanded_for_node = frozenset(
+            p for p in vs.expanded_pin_paths if p.startswith(f"{node_name}.")
+        )
+        self.scene.update_node_expansion(node_name, expanded_for_node)
         self._schedule_save_state()
 
     def _on_open(self) -> None:
