@@ -94,31 +94,11 @@ class GraphScene(QGraphicsScene):
 
     @staticmethod
     def _connected_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
-        out: dict[str, set[str]] = {}
-        for link in graph.links:
-            for path in (link.source_path, link.target_path):
-                node = node_of(path)
-                bucket = out.setdefault(node, set())
-                parts = path.split(".")
-                for i in range(2, len(parts) + 1):
-                    bucket.add(".".join(parts[:i]))
-        return out
+        return _connected_paths_by_node(graph)
 
     @staticmethod
     def _changed_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
-        out: dict[str, set[str]] = {}
-
-        def walk(node_name: str, pin, prefix: str) -> None:
-            path = f"{prefix}.{pin.name}"
-            if is_changed_from_default(pin):
-                out.setdefault(node_name, set()).add(path)
-            for sp in pin.subpins:
-                walk(node_name, sp, path)
-
-        for n in graph.nodes:
-            for p in n.pins:
-                walk(n.name, p, n.name)
-        return out
+        return _changed_paths_by_node(graph)
 
     def _add_link(self, link: Link) -> None:
         s_node, t_node = node_of(link.source_path), node_of(link.target_path)
@@ -196,3 +176,38 @@ class GraphScene(QGraphicsScene):
             visible = (src is not None and src.isVisible()
                        and dst is not None and dst.isVisible())
             link_item.setVisible(visible)
+
+
+def _connected_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
+    """connected pin paths — 자식이 link target이면 부모 path 자동 포함."""
+    out: dict[str, set[str]] = {}
+    for link in graph.links:
+        for path in (link.source_path, link.target_path):
+            node = node_of(path)
+            bucket = out.setdefault(node, set())
+            parts = path.split(".")
+            for i in range(2, len(parts) + 1):
+                bucket.add(".".join(parts[:i]))
+    return out
+
+
+def _changed_paths_by_node(graph: GraphModel) -> dict[str, set[str]]:
+    """default 값에서 변경된 핀의 path — 자식 변경 시 부모 path 자동 포함."""
+    out: dict[str, set[str]] = {}
+
+    def walk(node_name: str, pin, prefix: str) -> bool:
+        path = f"{prefix}.{pin.name}"
+        is_chg = is_changed_from_default(pin)
+        descendant_chg = False
+        for sp in pin.subpins:
+            if walk(node_name, sp, path):
+                descendant_chg = True
+        if is_chg or descendant_chg:
+            out.setdefault(node_name, set()).add(path)
+            return True
+        return False
+
+    for n in graph.nodes:
+        for p in n.pins:
+            walk(n.name, p, n.name)
+    return out
