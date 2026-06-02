@@ -118,3 +118,80 @@ def test_panel_preserves_all_nodes_fan_in(qapp):
     panel = DataFlowPanel()
     panel.show_result(_result_fan_in())
     assert panel.shown_node_names() == {"A", "B", "Mid", "S1", "S2"}
+
+
+# ---- g15: r.isolated 직접 사용 테스트 ----
+
+from t3dgraph.core.base.graph_model import GraphModel, Node, Pin, Link
+from t3dgraph.core.analysis.data_flow import analyze_data_flow
+
+
+def _exec_pin(name: str, direction: str) -> Pin:
+    return Pin(name=name, cpp_type="FRigVMExecuteContext",
+               direction=direction, is_execution=True)
+
+
+def _data_pin(name: str, direction: str) -> Pin:
+    return Pin(name=name, cpp_type="float", direction=direction)
+
+
+def test_exec_only_connected_node_not_in_isolated_group(qtbot) -> None:
+    """exec link로만 연결된 노드는 '고립/미연결'에 표시되지 않음."""
+    entry = Node(name="Entry", cls="X",
+                 pins=[_exec_pin("ExecOut", "Output")])
+    body = Node(name="Body", cls="X",
+                pins=[_exec_pin("ExecIn", "Input"),
+                      _data_pin("Out", "Output")])
+    consumer = Node(name="Consumer", cls="X",
+                    pins=[_data_pin("In", "Input")])
+    g = GraphModel(
+        nodes=[entry, body, consumer],
+        links=[
+            Link(source_path="Entry.ExecOut", target_path="Body.ExecIn"),
+            Link(source_path="Body.Out", target_path="Consumer.In"),
+        ],
+    )
+    result = analyze_data_flow(g)
+    panel = DataFlowPanel()
+    qtbot.addWidget(panel)
+    panel.show_result(result)
+
+    isolated_group = None
+    for i in range(panel._tree.topLevelItemCount()):
+        item = panel._tree.topLevelItem(i)
+        if item.text(0) == "고립/미연결":
+            isolated_group = item
+            break
+    if isolated_group is None:
+        return
+    isolated_names = {isolated_group.child(i).text(0)
+                      for i in range(isolated_group.childCount())}
+    assert "Entry" not in isolated_names
+
+
+def test_truly_isolated_node_still_in_group(qtbot) -> None:
+    """진짜 어떤 link도 없는 노드는 그룹에 표시."""
+    lonely = Node(name="Lonely", cls="X",
+                  pins=[_data_pin("A", "Input")])
+    connected_a = Node(name="CA", cls="X", pins=[_data_pin("Out", "Output")])
+    connected_b = Node(name="CB", cls="X", pins=[_data_pin("In", "Input")])
+    g = GraphModel(
+        nodes=[lonely, connected_a, connected_b],
+        links=[Link(source_path="CA.Out", target_path="CB.In")],
+    )
+    result = analyze_data_flow(g)
+    panel = DataFlowPanel()
+    qtbot.addWidget(panel)
+    panel.show_result(result)
+
+    isolated_group = None
+    for i in range(panel._tree.topLevelItemCount()):
+        item = panel._tree.topLevelItem(i)
+        if item.text(0) == "고립/미연결":
+            isolated_group = item
+            break
+    assert isolated_group is not None
+    names = {isolated_group.child(i).text(0)
+             for i in range(isolated_group.childCount())}
+    assert "Lonely" in names
+    assert "CA" not in names and "CB" not in names

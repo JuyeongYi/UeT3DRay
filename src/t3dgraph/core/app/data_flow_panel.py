@@ -49,12 +49,10 @@ class DataFlowPanel(NavigablePanel):
             top = self._add_tree(tree, self._tree.invisibleRootItem(), inbound=r.inputs_of)
             top.setExpanded(True)
 
-        shown = set(self._items.keys())
-        unshown = [n for n in r.all_nodes if n not in shown]
-        if unshown:
+        if r.isolated:
             group = QTreeWidgetItem(["고립/미연결"])
             self._tree.addTopLevelItem(group)
-            for name in unshown:
+            for name in r.isolated:
                 child = QTreeWidgetItem([name])
                 child.setData(0, _NODE_ROLE, name)
                 group.addChild(child)
