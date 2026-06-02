@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 from urllib.parse import quote
 from PySide6.QtCore import Qt, QSignalBlocker, QTimer
 from PySide6.QtWidgets import (
-    QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QWidget,
+    QMainWindow, QDockWidget, QFileDialog, QTabBar, QTabWidget, QToolBar, QVBoxLayout, QWidget,
     QMenu, QMessageBox,
 )
 from ..base.graph_model import GraphModel
@@ -68,12 +68,17 @@ class MainWindow(QMainWindow):
         self._tab_bar.setExpanding(False)
         self._tab_bar.currentChanged.connect(self._on_tab_changed)
         self._tab_bar.tabCloseRequested.connect(self._on_tab_close)
+        self._inline_toolbar = QToolBar("그래프 액션")
+        self._inline_toolbar.setMovable(False)
+        self._inline_toolbar.setFloatable(False)
+
         central = QWidget()
         vlay = QVBoxLayout(central)
         vlay.setContentsMargins(0, 0, 0, 0)
         vlay.setSpacing(0)
         vlay.addWidget(self._tab_bar)
         vlay.addWidget(self.breadcrumb)
+        vlay.addWidget(self._inline_toolbar)
         vlay.addWidget(self.view)
         self.setCentralWidget(central)
 
@@ -102,7 +107,7 @@ class MainWindow(QMainWindow):
         self._open_handler: Callable[[str], None] | None = None
         self._resolver = None
         self._build_menu()
-        self._build_view_mode_toolbar()
+        self._build_inline_toolbar()
         self._wire()
         self._build_shortcuts()
 
@@ -240,9 +245,8 @@ class MainWindow(QMainWindow):
             if self._open_handler:
                 self._open_handler(str(path))
 
-    def _build_view_mode_toolbar(self) -> None:
+    def _build_inline_toolbar(self) -> None:
         from PySide6.QtGui import QAction
-        toolbar = self.addToolBar("뷰 모드")
         self._view_mode_actions: dict[str, QAction] = {}
         toggles = (
             ("connected_only", "수정된 핀만",
@@ -255,18 +259,28 @@ class MainWindow(QMainWindow):
             action.setCheckable(True)
             action.toggled.connect(
                 lambda checked, s=setter, ip=in_place: self._on_view_mode(s, checked, ip))
-            toolbar.addAction(action)
+            self._inline_toolbar.addAction(action)
             self._view_mode_actions[mode_id] = action
 
         expand_all = QAction("전체 펼침", self)
         expand_all.triggered.connect(self._on_expand_all_pins)
-        toolbar.addAction(expand_all)
+        self._inline_toolbar.addAction(expand_all)
         self._view_mode_actions["expand_all"] = expand_all
 
         collapse_all = QAction("전체 접기", self)
         collapse_all.triggered.connect(self._on_collapse_all_pins)
-        toolbar.addAction(collapse_all)
+        self._inline_toolbar.addAction(collapse_all)
         self._view_mode_actions["collapse_all"] = collapse_all
+
+        self._inline_toolbar.addSeparator()
+
+        auto_arrange = QAction("자동 정렬", self)
+        auto_arrange.triggered.connect(self._on_auto_arrange)
+        self._inline_toolbar.addAction(auto_arrange)
+
+        hierarchical = QAction("위상 정렬", self)
+        hierarchical.triggered.connect(self._on_hierarchical_arrange)
+        self._inline_toolbar.addAction(hierarchical)
 
     def _on_expand_all_pins(self) -> None:
         if self.graph is None:
