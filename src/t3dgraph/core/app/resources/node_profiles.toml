@@ -1,0 +1,23 @@
+# t3dgraph 노드 클래스별 시각/동작 프로필
+# 사용자가 ~/.config/t3dgraph/node_profiles.toml 편집해 확장 가능.
+
+[profile.RigVMVariableNode]
+show_var_badge = true
+
+[profile.RigVMCollapseNode]
+always_show_chevron = true
+chevron_state_aware = true
+
+[profile.RigVMFunctionReferenceNode]
+always_show_chevron = true
+chevron_state_aware = true
+tooltip_when_no_subgraph = "함수 참조 — 함수 본문이 외부 파일에 있음. 에셋 폴더 열기로 함수 라이브러리 등록 필요."
+
+[profile.RigVMFunctionEntryNode]
+layout_hint = "outputs_only"
+
+[profile.RigVMFunctionReturnNode]
+layout_hint = "inputs_only"
+
+[profile.RigVMRerouteNode]
+layout_hint = "passthrough"
