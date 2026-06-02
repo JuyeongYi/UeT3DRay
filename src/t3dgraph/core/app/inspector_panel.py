@@ -143,6 +143,12 @@ class InspectorPanel(NavigablePanel):
         if peer:
             self.navigate_requested.emit(peer)
 
+    def show_multi_selection(self, count: int) -> None:
+        """N개 선택 시 타이틀만 표시, tree clear."""
+        self._tree.clear()
+        self._items = {}
+        self._set_title(f"(다중 선택 — {count}개 노드)")
+
     def pin_count(self) -> int:
         return len(self._items)
 

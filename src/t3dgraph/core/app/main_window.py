@@ -449,7 +449,16 @@ class MainWindow(QMainWindow):
         self._apply_persistent_state(path)
 
     def _on_scene_selection(self) -> None:
-        name = self.scene.selected_node_name()
+        selected = [item for item in self.scene._nodes.values() if item.isSelected()]
+        if len(selected) > 1:
+            self.current_view_state().select(None)
+            self.inspector.show_multi_selection(len(selected))
+            last = selected[-1].node.name
+            self.analysis_panel.highlight_node(last)
+            self.exec_order_panel.highlight_node(last)
+            self.data_flow_panel.highlight_node(last)
+            return
+        name = selected[0].node.name if selected else None
         self.current_view_state().select(name)
         if self.graph is not None:
             node = self.graph.node_by_name(name) if name else None

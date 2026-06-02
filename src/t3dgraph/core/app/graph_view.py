@@ -10,7 +10,7 @@ class GraphView(QGraphicsView):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setDragMode(QGraphicsView.RubberBandDrag)
         self.setRenderHint(QPainter.Antialiasing, True)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
 
