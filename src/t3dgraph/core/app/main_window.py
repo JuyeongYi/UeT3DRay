@@ -122,7 +122,16 @@ class MainWindow(QMainWindow):
         view_menu = self.menuBar().addMenu("보기")
         view_menu.addAction("핀 색 팔레트 리셋").triggered.connect(self._on_reset_palette)
         view_menu.addAction("핀 색 범례").triggered.connect(self._on_show_pin_color_legend)
+        view_menu.addAction("노드 프로필 참조").triggered.connect(self._on_show_node_profile_reference)
         view_menu.addAction("자동 정렬").triggered.connect(self._on_auto_arrange)
+
+    def _on_show_node_profile_reference(self) -> None:
+        from .node_profile_reference import NodeProfileReferenceDialog
+        if not hasattr(self, "_node_profile_ref_dialog") or self._node_profile_ref_dialog is None:
+            self._node_profile_ref_dialog = NodeProfileReferenceDialog(self.node_profiles, parent=self)
+        self._node_profile_ref_dialog.show()
+        self._node_profile_ref_dialog.raise_()
+        self._node_profile_ref_dialog.activateWindow()
 
     def _on_show_pin_color_legend(self) -> None:
         from .pin_color_legend import PinColorLegendDialog
