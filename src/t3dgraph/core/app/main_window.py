@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction("핀 색 범례").triggered.connect(self._on_show_pin_color_legend)
         view_menu.addAction("노드 프로필 참조").triggered.connect(self._on_show_node_profile_reference)
         view_menu.addAction("자동 정렬").triggered.connect(self._on_auto_arrange)
+        view_menu.addAction("위상 정렬").triggered.connect(self._on_hierarchical_arrange)
 
     def _on_show_node_profile_reference(self) -> None:
         from .node_profile_reference import NodeProfileReferenceDialog
@@ -188,6 +189,18 @@ class MainWindow(QMainWindow):
         self._schedule_save_state()
         self._rebuild_scene()
         self.statusBar().showMessage("노드 자동 정렬 완료", 4000)
+
+    def _on_hierarchical_arrange(self) -> None:
+        if self.graph is None:
+            return
+        from .auto_layout import hierarchical_arrange
+        new_positions = hierarchical_arrange(self.graph)
+        key = self._current_graph_key()
+        for name, (x, y) in new_positions.items():
+            self.layout_overrides.set(key, name, x, y)
+        self._schedule_save_state()
+        self._rebuild_scene()
+        self.statusBar().showMessage("위상 정렬 완료", 4000)
 
     def _show_palette_load_failure_dialog(self) -> None:
         exc = self._palette_load_exc
