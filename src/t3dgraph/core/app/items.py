@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from PySide6.QtCore import QObject, QRectF, QPointF, Qt, Signal
-from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QLinearGradient, QPolygonF
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QLinearGradient, QPolygonF, QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
     QGraphicsPathItem, QGraphicsItem,
@@ -19,7 +19,10 @@ class _NodeItemBus(QObject):
     context_menu_requested = Signal(str, object)   # F19 (node_name, QPoint)
 
 
-NODE_WIDTH = 200.0
+MIN_NODE_WIDTH = 200.0
+MAX_NODE_WIDTH = 400.0
+NODE_HORIZONTAL_PADDING = 24.0
+NODE_WIDTH = MIN_NODE_WIDTH   # legacy alias
 ROW_HEIGHT = 20.0
 HEADER_HEIGHT = 26.0
 PIN_RADIUS = 4.0
@@ -92,8 +95,9 @@ class NodeItem(QGraphicsRectItem):
         rows = collect_pin_rows(node, connected_subtree=connected_paths,
                                 connected_only=connected_only,
                                 expanded=expanded_paths)
+        self._node_width = self._compute_width(node, rows)
         height = HEADER_HEIGHT + max(len(rows), 1) * ROW_HEIGHT
-        super().__init__(QRectF(0, 0, NODE_WIDTH, height))
+        super().__init__(QRectF(0, 0, self._node_width, height))
         self.node = node
         self._bus: _NodeItemBus = _NodeItemBus()
         x, y = node.position if node.position else (0.0, 0.0)
@@ -119,7 +123,7 @@ class NodeItem(QGraphicsRectItem):
                 chev.setBrush(QBrush(QColor("#4CAF50")))
             else:
                 chev.setBrush(QBrush(QColor("#FFC107")))
-            chev.setPos(NODE_WIDTH - 16, 5)
+            chev.setPos(self._node_width - 16, 5)
             self.setCursor(Qt.PointingHandCursor)
             self.setToolTip("더블클릭하여 서브그래프 진입")
 
@@ -129,7 +133,7 @@ class NodeItem(QGraphicsRectItem):
             if pin_colors is not None:
                 var_color = pin_colors._palette.get("variable", var_color)
             badge_w, badge_h = 24.0, 14.0
-            badge_x = NODE_WIDTH - badge_w - 6
+            badge_x = self._node_width - badge_w - 6
             badge_y = (HEADER_HEIGHT - badge_h) / 2
             badge_bg = QGraphicsRectItem(badge_x, badge_y, badge_w, badge_h, self)
             badge_bg.setBrush(QBrush(var_color))
@@ -168,10 +172,10 @@ class NodeItem(QGraphicsRectItem):
                         dot.setPen(QPen(Qt.NoPen))
                     return dot
                 if is_output:
-                    _make_dot(NODE_WIDTH)
+                    _make_dot(self._node_width)
                 elif is_io:
                     _make_dot(0.0)
-                    _make_dot(NODE_WIDTH)
+                    _make_dot(self._node_width)
                 else:
                     _make_dot(0.0)
             indent = 18 + row.depth * 12
@@ -185,8 +189,8 @@ class NodeItem(QGraphicsRectItem):
                     ax = indent - 14
                     zone = (PIN_RADIUS + 2, indent - 2)
                 else:
-                    ax = NODE_WIDTH - indent + 2
-                    zone = (NODE_WIDTH - indent + 2, NODE_WIDTH - PIN_RADIUS - 2)
+                    ax = self._node_width - indent + 2
+                    zone = (self._node_width - indent + 2, self._node_width - PIN_RADIUS - 2)
                 arrow.setPos(ax, cy - ROW_HEIGHT / 2 + 2)
                 self._arrow_zones[row.path] = (zone[0], zone[1], cy)
             label_text = row.pin.name
@@ -201,8 +205,24 @@ class NodeItem(QGraphicsRectItem):
             if is_input_side:
                 lx = indent
             else:
-                lx = NODE_WIDTH - 8 - label.boundingRect().width() - arrow_w
+                lx = self._node_width - 8 - label.boundingRect().width() - arrow_w
             label.setPos(lx, cy - ROW_HEIGHT / 2 + 2)
+
+    @staticmethod
+    def _compute_width(node: "Node", rows: "list[PinRow]") -> float:
+        """타이틀·핀 라벨 폭 기반 노드 폭 계산 (MIN_NODE_WIDTH ~ MAX_NODE_WIDTH)."""
+        fm = QFontMetrics(QFont())
+        title_text = node.display_name or node.name or "?"
+        title_w = fm.horizontalAdvance(title_text) + 40.0
+        pin_w = MIN_NODE_WIDTH
+        for row in rows:
+            label_text = row.pin.name
+            if row.pin.variable_source:
+                label_text = f"{row.pin.name} (var: {row.pin.variable_source})"
+            lw = fm.horizontalAdvance(label_text)
+            per_side = lw + 30 + row.depth * 12
+            pin_w = max(pin_w, per_side * 2 + NODE_HORIZONTAL_PADDING)
+        return min(max(MIN_NODE_WIDTH, title_w, pin_w), MAX_NODE_WIDTH)
 
     _FUNCREF_CLS_SUFFIX = "RigVMFunctionReferenceNode"
 
@@ -296,8 +316,8 @@ class NodeItem(QGraphicsRectItem):
             top = pin_subpath.split(".", 1)[0]
             cy = self._rows.get(f"{self.node.name}.{top}")
         if cy is None:
-            return self.mapToScene(QPointF(NODE_WIDTH / 2, self.rect().height() / 2))
-        lx = NODE_WIDTH if (direction or "").lower() == "output" else 0.0
+            return self.mapToScene(QPointF(self._node_width / 2, self.rect().height() / 2))
+        lx = self._node_width if (direction or "").lower() == "output" else 0.0
         return self.mapToScene(QPointF(lx, cy))
 
 
