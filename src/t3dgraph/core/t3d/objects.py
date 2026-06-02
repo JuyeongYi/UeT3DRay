@@ -24,6 +24,7 @@ class T3DObject:
 
 
 _HEADER_ATTR = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S+)')
+_CUSTOM_PROPERTIES_DIRECTIVE = re.compile(r'^CustomProperties\s+\w+\s*\(')
 
 
 def _header_attrs(text: str) -> dict[str, str]:
@@ -59,6 +60,10 @@ def parse_objects(src: str) -> list[T3DObject]:
             elif ln.text == "End Object":
                 pos += 1
                 return obj, pos
+            elif _CUSTOM_PROPERTIES_DIRECTIVE.match(ln.text):
+                # UE EdGraph inline pin metadata — RigVM model 인터프리트와 무관, skip.
+                # 그대로 attribute parser에 넘기면 '값 뒤에 남은 입력' 폭발.
+                pos += 1
             elif "=" in ln.text:
                 key, _, raw = ln.text.partition("=")
                 try:
