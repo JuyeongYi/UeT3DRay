@@ -84,7 +84,19 @@ def collect_pin_rows(
 
 
 class NodeItem(QGraphicsRectItem):
-    """노드 1개 — 헤더 + 핀 행. 렌더 옵션으로 필터·서브핀·강조 제어."""
+    """그래프 노드 시각 요소.
+
+    **상태 invariant** — 다음 인스턴스 캐시는 `__init__` 또는 `update_state()`로만
+    갱신되어야 한다. populate() 외 경로(partial-update API 등)가 추가되면
+    그 호출자가 `update_state()`로 갱신을 명시해야 in-place rebuild가 stale
+    렌더링을 피한다:
+        - `_connected_paths` : frozenset[str]
+        - `_changed_paths`   : frozenset[str]
+        - `_connected_only`  : bool
+        - `_pin_colors`      : PinColorTable | None
+
+    `_expanded_paths`는 `set_expanded_paths()`로 갱신된다 (그 자체가 rebuild 트리거).
+    """
 
     def __init__(
         self, node: Node, *,
@@ -404,6 +416,22 @@ class NodeItem(QGraphicsRectItem):
         self._clear_rows()
         self._row_paths = [r.path for r in rows]
         self._install_rows(rows)
+
+    def update_state(self, *,
+                     connected_paths: "frozenset[str] | None" = None,
+                     changed_paths: "frozenset[str] | None" = None,
+                     connected_only: "bool | None" = None,
+                     pin_colors: "PinColorTable | None" = None) -> None:
+        """캐시된 렌더 상태 setter. 호출자는 이후 set_expanded_paths()로
+        rebuild를 명시적으로 트리거해야 한다 (이 setter는 install 안 함)."""
+        if connected_paths is not None:
+            self._connected_paths = connected_paths
+        if changed_paths is not None:
+            self._changed_paths = changed_paths
+        if connected_only is not None:
+            self._connected_only = connected_only
+        if pin_colors is not None:
+            self._pin_colors = pin_colors
 
     def set_highlighted(self, on: bool) -> None:
         if on:
