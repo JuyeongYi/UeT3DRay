@@ -7,10 +7,11 @@ from ..base.graph_model import GraphModel
 
 _ROOT_ROLE = Qt.UserRole + 1
 _DEPTH_ROLE = Qt.UserRole + 2
+_SUBGRAPH_ROLE = Qt.UserRole + 3
 
 
 class MinimapPanel(NavigablePanel):
-    location_clicked = Signal(int, int)
+    location_clicked = Signal(int, object)   # (root_index, GraphModel)
 
     def __init__(self) -> None:
         super().__init__()
@@ -29,6 +30,7 @@ class MinimapPanel(NavigablePanel):
             root_item = QTreeWidgetItem([root.label or '(이름 없음)'])
             root_item.setData(0, _ROOT_ROLE, ri)
             root_item.setData(0, _DEPTH_ROLE, 0)
+            root_item.setData(0, _SUBGRAPH_ROLE, root)
             self._tree.addTopLevelItem(root_item)
             if ri == current_root and current_depth == 0:
                 root_item.setSelected(True)
@@ -42,30 +44,36 @@ class MinimapPanel(NavigablePanel):
     def _render_children(self, graph, parent_item, root_index, depth,
                          active_path, current_depth):
         for n in graph.nodes:
-            if n.subgraph is None:
-                continue
-            label = n.display_name or n.name
-            item = QTreeWidgetItem([label])
-            item.setData(0, _ROOT_ROLE, root_index)
-            item.setData(0, _DEPTH_ROLE, depth)
-            parent_item.addChild(item)
-            if active_path is not None and depth <= current_depth:
-                if active_path[depth] is n.subgraph:
-                    item.setSelected(True)
-                    item.setExpanded(True)
-                    self._render_children(n.subgraph, item, root_index, depth + 1,
-                                          active_path, current_depth)
-                    continue
-            self._render_children(n.subgraph, item, root_index, depth + 1, None, current_depth)
+            subs = []
+            if n.subgraph is not None:
+                subs.append(n.subgraph)
+            subs.extend(n.extra_subgraphs)
+            for sub in subs:
+                label = n.display_name or n.name
+                if len(subs) > 1:
+                    label = f"{label} ({sub.label or 'graph'})"
+                item = QTreeWidgetItem([label])
+                item.setData(0, _ROOT_ROLE, root_index)
+                item.setData(0, _DEPTH_ROLE, depth)
+                item.setData(0, _SUBGRAPH_ROLE, sub)
+                parent_item.addChild(item)
+                if active_path is not None and depth <= current_depth:
+                    if active_path[depth] is sub:
+                        item.setSelected(True)
+                        item.setExpanded(True)
+                        self._render_children(sub, item, root_index, depth + 1,
+                                              active_path, current_depth)
+                        continue
+                self._render_children(sub, item, root_index, depth + 1, None, current_depth)
 
     def _on_activated(self, item, _col):
         ri = item.data(0, _ROOT_ROLE)
-        depth = item.data(0, _DEPTH_ROLE)
-        if ri is not None and depth is not None:
-            self.location_clicked.emit(ri, depth)
+        sub = item.data(0, _SUBGRAPH_ROLE)
+        if ri is not None and sub is not None:
+            self.location_clicked.emit(ri, sub)
 
-    def _click_for_test(self, root_index: int, depth: int) -> None:
-        self.location_clicked.emit(root_index, depth)
+    def _click_for_test(self, root_index: int, subgraph) -> None:
+        self.location_clicked.emit(root_index, subgraph)
 
     def all_labels(self) -> list[str]:
         out = []

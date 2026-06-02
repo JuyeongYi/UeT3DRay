@@ -31,7 +31,7 @@ def test_minimap_renders_subgraph_children(qapp):
     assert 'P' in ' '.join(labels) or 'inner' in ' '.join(labels)
 
 
-def test_click_jumps_to_segment(qapp):
+def test_click_emits_subgraph(qapp):
     inner = GraphModel(label='inner', nodes=[Node(name='I', cls=None)])
     g = GraphModel(label='root.t3d', nodes=[Node(name='P', cls=None, subgraph=inner)])
     s = GraphStack()
@@ -40,6 +40,6 @@ def test_click_jumps_to_segment(qapp):
     p = MinimapPanel()
     p.show_stack(s)
     received = []
-    p.location_clicked.connect(lambda ri, d: received.append((ri, d)))
-    p._click_for_test(root_index=0, depth=0)
-    assert received == [(0, 0)]
+    p.location_clicked.connect(lambda ri, sub: received.append((ri, sub)))
+    p._click_for_test(root_index=0, subgraph=g)
+    assert received == [(0, g)]

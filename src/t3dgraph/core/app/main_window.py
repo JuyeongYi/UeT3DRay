@@ -435,11 +435,10 @@ class MainWindow(QMainWindow):
         if path:
             self.open_path(path)
 
-    def _on_minimap_click(self, root_index: int, depth: int) -> None:
+    def _on_minimap_click(self, root_index: int, subgraph) -> None:
         if root_index != self._tab_bar.currentIndex():
             self._tab_bar.setCurrentIndex(root_index)
-        else:
-            self.graph_stack.jump_to(depth)
+        if self.graph_stack.jump_to_subgraph(subgraph):
             self._render_current()
 
     def set_open_handler(self, handler: Callable[[str], None]) -> None:
