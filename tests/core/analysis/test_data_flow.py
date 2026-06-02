@@ -203,3 +203,66 @@ def test_sinks_and_sources_node_level_unchanged():
     r = analyze_data_flow(g)
     assert r.sources == ["Src"]
     assert r.sinks == ["Snk"]
+
+
+# g8 (F30) — isolated 판정에서 exec 연결도 포함
+
+def test_entry_with_only_exec_not_isolated() -> None:
+    """Entry 노드가 exec link로만 연결돼도 isolated 아님."""
+    entry = _node("Entry", _exec_pin("ExecuteContext", "Output"))
+    body = _node("Body",
+                 _exec_pin("ExecuteContext", "Input"),
+                 _data_pin("A", "Input"),
+                 _data_pin("B", "Output"))
+    consumer = _node("Consumer", _data_pin("B", "Input"))
+    g = GraphModel(
+        nodes=[entry, body, consumer],
+        links=[
+            Link(source_path="Entry.ExecuteContext", target_path="Body.ExecuteContext"),
+            Link(source_path="Body.B", target_path="Consumer.B"),
+        ],
+    )
+    result = analyze_data_flow(g)
+    assert "Entry" not in result.isolated, (
+        f"Entry는 exec link로 연결됨 — isolated 잘못 표시: {result.isolated}"
+    )
+
+
+def test_return_with_only_exec_not_isolated() -> None:
+    """Return 노드가 exec link로만 들어와도 isolated 아님."""
+    src = _node("Src", _exec_pin("ExecOut", "Output"))
+    return_node = _node("Return", _exec_pin("ExecIn", "Input"))
+    g = GraphModel(
+        nodes=[src, return_node],
+        links=[Link(source_path="Src.ExecOut", target_path="Return.ExecIn")],
+    )
+    result = analyze_data_flow(g)
+    assert "Return" not in result.isolated
+
+
+def test_node_with_no_link_is_isolated() -> None:
+    """진짜 link가 0인 노드는 isolated 유지 (회귀 없음)."""
+    floating = _node("Floating", _data_pin("A", "Input"))
+    g = GraphModel(nodes=[floating], links=[])
+    result = analyze_data_flow(g)
+    assert "Floating" in result.isolated
+
+
+def test_data_flow_edges_unchanged_by_isolated_fix() -> None:
+    """isolated 검사 변경이 data_edges (exec 제외)에 영향 없음."""
+    entry = _node("Entry", _exec_pin("ExecOut", "Output"))
+    body = _node("Body",
+                 _exec_pin("ExecIn", "Input"),
+                 _data_pin("Result", "Output"))
+    consumer = _node("Consumer", _data_pin("In", "Input"))
+    g = GraphModel(
+        nodes=[entry, body, consumer],
+        links=[
+            Link(source_path="Entry.ExecOut", target_path="Body.ExecIn"),
+            Link(source_path="Body.Result", target_path="Consumer.In"),
+        ],
+    )
+    result = analyze_data_flow(g)
+    assert len(result.data_edges) == 1
+    edge_paths = [(e.source_node, e.target_node) for e in result.data_edges]
+    assert ("Body", "Consumer") in edge_paths

@@ -90,7 +90,13 @@ def analyze_data_flow(graph: GraphModel) -> DataFlowResult:
                      if not incoming_nodes.get(n) and outgoing_nodes.get(n))
     sinks = sorted(n for n in nodes_with_data
                    if incoming_nodes.get(n) and not outgoing_nodes.get(n))
-    isolated = sorted(n for n in all_nodes if n not in nodes_with_data)
+
+    # F30: isolated 판정은 모든 link 기준 — exec 연결도 "고립 아님"으로 인정
+    nodes_with_any_connection: set[str] = set()
+    for link in graph.links:
+        nodes_with_any_connection.add(PinRef.parse(link.source_path).node)
+        nodes_with_any_connection.add(PinRef.parse(link.target_path).node)
+    isolated = sorted(n for n in all_nodes if n not in nodes_with_any_connection)
 
     return DataFlowResult(
         data_edges=edges,
