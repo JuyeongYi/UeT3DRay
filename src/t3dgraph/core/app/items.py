@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from PySide6.QtCore import QObject, QRectF, QPointF, Qt, Signal
-from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QLinearGradient
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QLinearGradient, QPolygonF
 from PySide6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsEllipseItem,
     QGraphicsPathItem, QGraphicsItem,
@@ -321,7 +321,12 @@ class LinkItem(QGraphicsPathItem):
                  width: float = 1.5,
                  is_execution: bool = False):
         super().__init__(self._build_path(p1, p2))
+        self._p1 = p1
+        self._p2 = p2
+        self._width = width
+        self._arrow_size = max(8.0, width * 4.0)
         color = pen_color if pen_color is not None else QColor("#AAAAAA")
+        self._end_color = pen_color_end if pen_color_end is not None else color
         if is_execution or pen_color_end is None or pen_color_end == color:
             pen = QPen(color, width)
         else:
@@ -353,18 +358,54 @@ class LinkItem(QGraphicsPathItem):
         self.setPen(pen)
         self.update()
 
-    @staticmethod
-    def _build_path(p1: QPointF, p2: QPointF) -> QPainterPath:
+    def _build_path(self, p1: QPointF, p2: QPointF) -> QPainterPath:
         dx = p2.x() - p1.x()
         handle = max(abs(dx) / 2.0, MIN_HANDLE_PX)
         if dx < 0:
             handle = max(handle, BACKWARD_HANDLE_PX)
         c1 = QPointF(p1.x() + handle, p1.y())
         c2 = QPointF(p2.x() - handle, p2.y())
+        self._cached_c2 = c2
         path = QPainterPath(p1)
         path.cubicTo(c1, c2, p2)
         return path
 
+    def _compute_arrow_polygon(self) -> QPolygonF:
+        """끝점에 그릴 화살촉 폴리곤 (3 꼭짓점)."""
+        tangent_x = self._p2.x() - self._cached_c2.x()
+        tangent_y = self._p2.y() - self._cached_c2.y()
+        length = (tangent_x ** 2 + tangent_y ** 2) ** 0.5
+        if length < 0.001:
+            dx, dy = 1.0, 0.0
+        else:
+            dx, dy = tangent_x / length, tangent_y / length
+        size = self._arrow_size
+        tip = self._p2
+        back_x = tip.x() - dx * size
+        back_y = tip.y() - dy * size
+        perp_x = -dy * size * 0.5
+        perp_y = dx * size * 0.5
+        return QPolygonF([
+            tip,
+            QPointF(back_x + perp_x, back_y + perp_y),
+            QPointF(back_x - perp_x, back_y - perp_y),
+        ])
+
+    def paint(self, painter, option, widget=None) -> None:  # noqa: N802
+        super().paint(painter, option, widget)
+        painter.save()
+        painter.setBrush(QBrush(self._end_color))
+        painter.setPen(Qt.NoPen)
+        painter.drawPolygon(self._compute_arrow_polygon())
+        painter.restore()
+
+    def boundingRect(self):  # noqa: N802
+        base = super().boundingRect()
+        return base.adjusted(-self._arrow_size, -self._arrow_size,
+                             self._arrow_size, self._arrow_size)
+
     def update_endpoints(self, p1: QPointF, p2: QPointF) -> None:
         self.prepareGeometryChange()
+        self._p1 = p1
+        self._p2 = p2
         self.setPath(self._build_path(p1, p2))
