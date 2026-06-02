@@ -99,9 +99,9 @@ class InspectorPanel(NavigablePanel):
         # is_in_conn is True for ancestor prefixes too — _is_self_target disambiguates direct endpoint vs descendant
         is_self_conn = self._is_self_target(full, graph)
         is_self_chg = (full in changed_paths) and is_changed_from_default(pin)
-        # descendant check: any direct child path present in set (sets include prefix closure)
-        has_desc_conn = any(f"{full}.{sp.name}" in connected_paths for sp in pin.subpins)
-        has_desc_chg = any(f"{full}.{sp.name}" in changed_paths for sp in pin.subpins)
+        # descendant check: startswith handles all nesting depths explicitly
+        has_desc_conn = any(cp.startswith(f"{full}.") for cp in connected_paths)
+        has_desc_chg = any(cp.startswith(f"{full}.") for cp in changed_paths)
         status_parts = []
         if is_self_conn and has_desc_conn:
             status_parts.append("연결됨 (원소 포함)")
