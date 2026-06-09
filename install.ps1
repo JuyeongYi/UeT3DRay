@@ -1,5 +1,4 @@
 #!/usr/bin/env pwsh
-#Requires -Version 7.0
 <#
 .SYNOPSIS
   T3DGraphViewer(t3dgraph[gui])를 krafton 깃 저장소에서 직접 설치한다.
